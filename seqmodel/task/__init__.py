@@ -12,11 +12,22 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
     """
     @staticmethod
     def _default_hparams(parser):
-        parser.add_argument('--batch_size', default=16, type=int)
-        parser.add_argument('--adam_beta_1', default=0.9, type=float)
-        parser.add_argument('--adam_beta_2', default=0.99, type=float)
-        parser.add_argument('--adam_eps', default=1e-6, type=float)
-        parser.add_argument('--weight_decay', default=0.01, type=float)
+        parser.add_argument('--batch_size', default=16, type=int,
+                            help='number of samples in each training minibatch')
+        parser.add_argument('--valid_batch_size', default=None, type=int,
+                            help='number of samples in each validation minibatch,' +
+                            ' set to --batch_size if None')
+        parser.add_argument('--test_batch_size', default=None, type=int,
+                            help='number of samples in each test minibatch,' +
+                            ' set to --batch_size if None')
+        parser.add_argument('--adam_beta_1', default=0.9, type=float,
+                            help='beta 1 parameter for Adam optimizer')
+        parser.add_argument('--adam_beta_2', default=0.99, type=float,
+                            help='beta 2 parameter for Adam optimizer')
+        parser.add_argument('--adam_eps', default=1e-6, type=float,
+                            help='epsilon parameter for Adam optimizer')
+        parser.add_argument('--weight_decay', default=0.01, type=float,
+                            help='weight decay for Adam optimizer')
         return parser
 
     @staticmethod

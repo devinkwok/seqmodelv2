@@ -55,7 +55,8 @@ Sequence Data
 
 Hyperparameters
 ---------------
-Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparam`
+Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparams`
+- subclasses of `Hparams` must have unique names for unit testing to work
 - hparams form a single namespace (no duplicate names or overriding allowed)
 - hparams are stored in a `dict`
 - default hparams are stored in an `ArgumentParser` object

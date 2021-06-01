@@ -1,5 +1,5 @@
 import abc
-from torch.utils import DataLoader
+from torch.utils.data.dataloader import DataLoader
 from seqmodel.hparam import Hparams
 
 

@@ -12,7 +12,7 @@ class Hparams(abc.ABC):
     """
 
     @abc.abstractstaticmethod
-    def _default_hparams(parser: ArgumentParser):
+    def _default_hparams(parser: ArgumentParser)-> ArgumentParser:
         """Defines default hparam values by adding them to parser.
         Do not call this to get defaults, instead call `default_hparams` which
         includes defaults from superclass.
@@ -23,7 +23,7 @@ class Hparams(abc.ABC):
         Returns:
             ArgumentParser: parser with default values of registered hparams.
         """
-        return None #TODO
+        return None
 
     @staticmethod
     def parse_dict(hparams: dict, default_hparams: ArgumentParser)-> dict:

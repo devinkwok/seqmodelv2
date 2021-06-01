@@ -12,8 +12,9 @@ class Job(Hparams, abc.ABC):
     """
     @staticmethod
     def _default_hparams(parser):
-        parser.add_argument('--log_path', default='./out', type=str,
+        parser.add_argument('--job_output_root_dir', default='./out', type=str,
                             help='base path for storing job scripts and outputs')
+        return parser
 
     @staticmethod
     def hparams_to_canonical_str(hparams: dict)-> typing.List[str]:
@@ -107,6 +108,7 @@ class LocalJob(Job):
     def _default_hparams(parser):
         parser.add_argument('--local_env_command', default='source ./env/bin/activate', type=str,
                             help='command to start preinstalled python environment')
+        return parser
 
     def _make_script(self, hparams: dict)-> str:
         """Uses `str.format()` to fill in `template_local_shell.sh`.

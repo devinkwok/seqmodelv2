@@ -15,8 +15,8 @@ class Initializer(Hparams):
         parser.add_argument('--model_type', default=None, type=str,
                             help='[ptmask, ftdeepsea] objects to load')
         parser.add_argument('--load_encoder_from_checkpoint', default=None, type=str,
-                            help='path to encoder checkpoint, replaces encoder from \
-                                --load_from_checkpoint or --resume_from_checkpoint')
+                            help='path to encoder checkpoint, replaces encoder from' +
+                                ' --load_from_checkpoint or --resume_from_checkpoint')
         return parser
 
     @staticmethod
