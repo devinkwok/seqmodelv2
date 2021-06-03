@@ -17,7 +17,7 @@ class Job(Hparams, abc.ABC):
         return parser
 
     @staticmethod
-    def hparams_to_canonical_str(hparams: dict)-> typing.List[str]:
+    def hparams_to_canonical_str(hparams: dict) -> typing.List[str]:
         """Converts dict of hyperparameters into ordered list of strings.
         Only non-default hyperparameters are recorded,
         default values are defined by `seqmodel.run.get_parser()`.
@@ -36,7 +36,7 @@ class Job(Hparams, abc.ABC):
         """
         return None #TODO
 
-    def path_to_latest_checkpoint(self, base_path: str)-> os.PathLike:
+    def path_to_latest_checkpoint(self, base_path: str) -> os.PathLike:
         """Finds filepath of most recent checkpoint by highest epoch/iteration
         number given base_path. Searches all subdirectories recursively.
         Searches from current working directory in local or remote
@@ -50,7 +50,7 @@ class Job(Hparams, abc.ABC):
         """
         return None #TODO
 
-    def fill_latest_ckpt_paths(self, hparams: dict)-> dict:
+    def fill_latest_ckpt_paths(self, hparams: dict) -> dict:
         """Replaces any `[base_path]/$LATEST_CHECKPOINT`
         with `path_to_latest_checkpoint([base_path])`
 
@@ -77,7 +77,7 @@ class Job(Hparams, abc.ABC):
         raise ValueError() #TODO
 
     @abc.abstractmethod
-    def _make_script(self, hparams: dict)-> str:
+    def _make_script(self, hparams: dict) -> str:
         """Returns script to write to file (defined by subclass).
 
         Args:
@@ -89,7 +89,7 @@ class Job(Hparams, abc.ABC):
         return None #TODO
 
     @abc.abstractmethod
-    def submit(self, hparams: dict)-> str:
+    def submit(self, hparams: dict) -> str:
         """Generate and run job script (defined by subclass).
 
         Args:
@@ -110,7 +110,7 @@ class LocalJob(Job):
                             help='command to start preinstalled python environment')
         return parser
 
-    def _make_script(self, hparams: dict)-> str:
+    def _make_script(self, hparams: dict) -> str:
         """Uses `str.format()` to fill in `template_local_shell.sh`.
 
         Args:
@@ -121,7 +121,7 @@ class LocalJob(Job):
         """
         return None #TODO
 
-    def submit(self, hparams: dict)-> str:
+    def submit(self, hparams: dict) -> str:
         """Generates job script and runs it locally in shell
 
         Args:
@@ -156,7 +156,7 @@ class RemoteSlurmJob(Job):
                             help='type of gpu to request (number is filled from hparam)')
         return parser
 
-    def _make_script(self, hparams: dict)-> str:
+    def _make_script(self, hparams: dict) -> str:
         """Uses `str.format()` to fill in `template_remote_slurm.sh`.
 
         Args:
@@ -167,7 +167,7 @@ class RemoteSlurmJob(Job):
         """
         return None #TODO
 
-    def submit(self, hparams: dict)-> str:
+    def submit(self, hparams: dict) -> str:
         """Submits job via Slurm over ssh.
 
         Args:

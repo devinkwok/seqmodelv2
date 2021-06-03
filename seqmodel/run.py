@@ -38,7 +38,7 @@ class Initializer(Hparams):
         return None #TODO
 
     @staticmethod
-    def _initialize_objects(hparams: dict)-> Task:
+    def _initialize_objects(hparams: dict) -> Task:
         """Initializes objects from hparams
 
         Args:
@@ -54,7 +54,7 @@ class Initializer(Hparams):
         return task
 
     @staticmethod
-    def initialize_objects(parser: ArgumentParser)-> Task:
+    def initialize_objects(parser: ArgumentParser) -> Task:
         """Initializes objects from parser (calls `_initialize_objects`).
 
         Args:

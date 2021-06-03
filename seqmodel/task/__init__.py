@@ -49,7 +49,7 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         self.decoder = decoder
 
     @abc.abstractmethod
-    def loss_fn(self, model_output: torch.Tensor, target: torch.Tensor)-> torch.Tensor:
+    def loss_fn(self, model_output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """Calculate loss (defined by subclass).
 
         Args:

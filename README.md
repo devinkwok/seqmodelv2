@@ -48,6 +48,8 @@ Creating multiple jobs for hparam tuning:
 DEVELOPMENT
 ===========
 
+Primary branch is `main`. Keep all versions tagged on `main`. Use separate branches for code changes needed for specific experiments or debugging.
+
 Sequence Data
 -------------
 - make no assumptions about length or characters in sequence alphabet, instead pass `dataset.seq.Alphabet` objects.
@@ -56,14 +58,20 @@ Sequence Data
 Hyperparameters
 ---------------
 Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparams`
-- subclasses of `Hparams` must have unique names for unit testing to work
-- hparams form a single namespace (no duplicate names or overriding allowed)
-- hparams are stored in a `dict`
+- hparams form a single namespace (no duplicate names or overriding allowed, each hparam is defined by only one class)
+- hparams are inherited by subclasses
 - default hparams are stored in an `ArgumentParser` object
+- default_hparams are required arguments for object initialization, although other arguments can be provided. When calling `__init__` on a subclass of `Hparams`, all defined hparams are stored in `self.hparams`, and the remaining arguments are ignored.
 - missing keys in hparams are replaced by default values
-- hparams are required arguments for object initialization, and stored in `self.hparams`
-- all parsed hparams are available to all objects, but it is possible to not parse some hparams, such as in `job.py`, in particular `run.py` parses all hparams for model tasks
-- use `Hparam.parse_dict()` to convert 
+- `run.py` combines all parsers needed to define the model objects. `job.py` has parsers which are independent of `run.py`.
+- static methods in `hparam` require an `ArgumentParser` parameter, this allows parsers from multiple objects to be combined. When operating on one object only, call that object's `default_hparams()` to get a parser.
+- use `hparam.parse_dict()` to convert between `ArgumentParser` and `dict`
+
+For unit testing:
+- subclasses of `Hparams` must have unique names
+- subclasses of `Hparams` must be at the top level of each module
+    (i.e. defined by `class Name(Hparams)` in each `.py` file, not defined within another class)
+- each hparam must have a non-empty help string
 
 Versions
 --------
