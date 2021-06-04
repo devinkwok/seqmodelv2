@@ -68,7 +68,6 @@ Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparams
 - use `hparam.parse_dict()` to convert between `ArgumentParser` and `dict`
 
 For unit testing:
-- subclasses of `Hparams` must have unique names
 - subclasses of `Hparams` must be at the top level of each module
     (i.e. defined by `class Name(Hparams)` in each `.py` file, not defined within another class)
 - each hparam must have a non-empty help string

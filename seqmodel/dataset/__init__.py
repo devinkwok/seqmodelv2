@@ -10,7 +10,7 @@ class Dataset(Hparams, abc.ABC):
         return parser
 
     @abc.abstractmethod
-    def dataloader(type: str = 'train'):
+    def dataloader(type: str = 'train') -> DataLoader:
         """Returns dataloader for train/valid/test split.
 
         Args:

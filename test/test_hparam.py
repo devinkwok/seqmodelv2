@@ -1,12 +1,12 @@
 import unittest
 import os
+import shlex
+import typing
 import inspect
 import warnings
-import importlib
-import shlex
-from unittest.case import expectedFailure
-from seqmodel import hparam
 import argparse
+import importlib
+from seqmodel import hparam
 
 
 def path_to_module_name(path: os.PathLike, filename: os.PathLike) -> str:
@@ -31,6 +31,34 @@ def path_to_module_name(path: os.PathLike, filename: os.PathLike) -> str:
     return '.'.join(path_names)
 
 
+def find_subclasses(
+        super_class: type,
+        root_dir: os.PathLike,
+        exclude: typing.List[type] = [],
+    ) -> type:
+
+    checked_modules = exclude
+
+    for path, _, files in os.walk(root_dir):  # recursively check root dir
+
+        for file in files:
+            module_name = path_to_module_name(path, file)
+            if module_name is None:
+                continue  # only import .py files
+            module = importlib.import_module(module_name)
+
+            for _, member in inspect.getmembers(module):
+                if not inspect.isclass(member):
+                    continue  # only look at classes...
+                if not issubclass(member, super_class):
+                    continue  # ...that subclass Hparams
+                if member in checked_modules:
+                    continue # ...and hasn't been checked
+
+                checked_modules.append(member)
+                yield member
+
+
 class TestHparams(unittest.TestCase):
 
     def test_hparams_unique(self):
@@ -40,38 +68,20 @@ class TestHparams(unittest.TestCase):
         Note: this assumes each subclass of Hparams has a unique name!
         """
         parser = argparse.ArgumentParser()
-        checked_member_names = ['Hparams']  # don't check the abstract base class Hparams
-
-        for path, _, files in os.walk('.'):  # recursively check root dir
-
-            for file in files:
-                module_name = path_to_module_name(path, file)
-                if module_name is None:
-                    continue  # only import .py files
-                module = importlib.import_module(module_name)
-
-                for member_name, member in inspect.getmembers(module):
-                    if not inspect.isclass(member):
-                        continue  # only look at classes...
-                    if not issubclass(member, hparam.Hparams):
-                        continue  # ...that subclass Hparams
-                    if member_name in checked_member_names:
-                        continue # ...and hasn't been checked
-
-                    checked_member_names.append(member_name)
-                    parser = member._default_hparams(parser)
-
-                    # check that the parser was returned
-                    if not isinstance(parser, argparse.ArgumentParser):
-                        raise ValueError(f'`{member_name}._default_hparams(parser)` should' +
-                            f' return type `ArgumentParser`, instead got `{parser}`.')
-                    # check that the class generates a valid set of default hparams
-                    new_parser = member.default_hparams()
-                    self.assertIsInstance(new_parser, argparse.ArgumentParser)
-                    hparams = hparam.default_to_dict(new_parser)
-                    self.assertIsInstance(hparams, dict)
-                    if len(hparams) == 0:
-                        warnings.warn(f'`{member_name}` class extends `Hparams` but has no default hparams.')
+        # recursively check source root dir, excluding base class Hparams
+        for member in find_subclasses(hparam.Hparams, '.', [hparam.Hparams]):
+            parser = member._default_hparams(parser)
+            # check that the parser was returned
+            if not isinstance(parser, argparse.ArgumentParser):
+                raise ValueError(f'`{member.__name__}._default_hparams(parser)` should' +
+                    f' return type `ArgumentParser`, instead got `{parser}`.')
+            # check that the class generates a valid set of default hparams
+            new_parser = member.default_hparams()
+            self.assertIsInstance(new_parser, argparse.ArgumentParser)
+            hparams = hparam.default_to_dict(new_parser)
+            self.assertIsInstance(hparams, dict)
+            if len(hparams) == 0:
+                warnings.warn(f'`{member.__name__}` class extends `Hparams` but has no default hparams.')
 
         # check every hparam for help string
         for a in parser._actions:
