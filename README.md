@@ -34,7 +34,13 @@ Submitting individual jobs using python interface:
 - import `seqmodel.job.Job` or a subclass in local or remote Jupyter notebook
 - create `Job` object with appropriate credentials
 - call `submit` with relevant hparams to create job
-- `Job` will log submitted jobs to log_path, and save all model outputs to the same path
+- `Job` will log submitted jobs to `job_out_dir`, and save all model outputs to the same path
+- `Job` reports on replicate status using stdout and stderr redirected to files:
+    - `created`: if job script exists but stdout and stderr missing
+    - `error`: exception in stderr
+    - `complete`: job complete message in stdout
+    - `timeout`: task kill or Slurm timeout message in stdout
+    - `running`: none of the above
 
 Multiple Jobs
 -------------

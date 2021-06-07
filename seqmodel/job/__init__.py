@@ -5,6 +5,26 @@ import typing
 from seqmodel.hparam import Hparams
 
 
+def hparams_to_canonical_str(hparams: dict) -> typing.List[str]:
+    """Converts dict of hyperparameters into ordered list of strings.
+    Only non-default hyperparameters are recorded,
+    default values are defined by `seqmodel.run.get_parser()`.
+    Hparams are arranged by group as model, dataset, task, then in lexical order.
+    Each hparam value is converted to a canonical string.
+    The resulting list of strings can be concatenated to form a descriptive name,
+    or turned into the canonical path:
+    `[version]/[model hparams]/[dataset hparams]/[task hparams]/`.
+
+    Args:
+        hparams (dict): valid non-default hparams
+
+    Returns:
+        list[str]: canonical string form of hparams in canonical order,
+            apply os.path.join() to get canonical path
+    """
+    return None #TODO
+
+
 class Job(Hparams, abc.ABC):
     """Represents an interface with a device for running training/inference.
     Uses `hparam.Hparams` interface to store parameters, however only the
@@ -12,29 +32,9 @@ class Job(Hparams, abc.ABC):
     """
     @staticmethod
     def _default_hparams(parser):
-        parser.add_argument('--job_output_root_dir', default='./out', type=str,
+        parser.add_argument('--job_out_dir', default='./out', type=str,
                             help='base path for storing job scripts and outputs')
         return parser
-
-    @staticmethod
-    def hparams_to_canonical_str(hparams: dict) -> typing.List[str]:
-        """Converts dict of hyperparameters into ordered list of strings.
-        Only non-default hyperparameters are recorded,
-        default values are defined by `seqmodel.run.get_parser()`.
-        Hparams are arranged by group as model, dataset, task, then in lexical order.
-        Each hparam value is converted to a canonical string.
-        The resulting list of strings can be concatenated to form a descriptive name,
-        or turned into the canonical path:
-        `[version]/[model hparams]/[dataset hparams]/[task hparams]/`.
-
-        Args:
-            hparams (dict): valid non-default hparams
-
-        Returns:
-            list[str]: canonical string form of hparams in canonical order,
-                apply os.path.join() to get canonical path
-        """
-        return None #TODO
 
     def path_to_latest_checkpoint(self, base_path: str) -> os.PathLike:
         """Finds filepath of most recent checkpoint by highest epoch/iteration
@@ -50,7 +50,36 @@ class Job(Hparams, abc.ABC):
         """
         return None #TODO
 
-    def fill_latest_ckpt_paths(self, hparams: dict) -> dict:
+    def replicates(self, canonical_path: os.PathLike, status='all') -> typing.List[os.PathLike]:
+        """Looks in `job_out_dir/canonical_path` for replicates.
+        Returns list of job script filenames for replicates in the category `status`.
+        `canonical_path` may not exist, in which case an empty list is returned.
+
+        Args:
+            canonical_path (os.PathLike): base path to search for replicates.
+            status (str): category of replicate to find, one of
+                {'all', 'created', 'running', 'error', 'timeout', 'complete'}
+
+        Returns:
+            dict[str, os.PathLike]: dict of job status categories and lists of paths to jobs
+        """
+        return None #TODO
+
+    def new_replicate(self, canonical_path: os.PathLike) -> os.PathLike:
+        """Checks if `canonical_path` exists in `job_out_dir`.
+        If non-existing, creates subdirectories as needed.
+        Else, finds highest replicate number and
+        creates/returns new subdirectory which increments the replicate number.
+
+        Args:
+            canonical_path (os.PathLike): base path to search for replicates.
+
+        Returns:
+            os.PathLike: path to new replicate subdirectory,
+                replicate number guaranteed to be largest under canonical_path
+        """
+
+    def _fill_latest_ckpt_paths(self, hparams: dict) -> dict:
         """Replaces any `[base_path]/$LATEST_CHECKPOINT`
         with `path_to_latest_checkpoint([base_path])`
 
@@ -62,22 +91,22 @@ class Job(Hparams, abc.ABC):
         """
         return None #TODO
 
-    def make_script(self, filepath: str, hparams: dict):
-        """Generates job script and saves to filepath.
+    def create(self, hparams: dict):
+        """Generates job script.
+        Calls `hparams_to_canonical_str` to get job path.
+        Calls `new_replicate` to increment replicates or create job path.
         Calls `fill_latest_ckpt_paths` on hparams.
-        Creates new replicate if same job has been run previously at same log_path.
 
         Args:
-            filepath (str): location of script, replicate number is appended if needed
             hparams (dict): hparams for run.py
 
-        Raises:
-            ValueError: if hyperparameters are not valid
+        Returns:
+            os.PathLike: path to job script relative to `job_out_dir`
         """
-        raise ValueError() #TODO
+        return None #TODO
 
     @abc.abstractmethod
-    def _make_script(self, hparams: dict) -> str:
+    def _create(self, hparams: dict) -> str:
         """Returns script to write to file (defined by subclass).
 
         Args:
@@ -89,14 +118,14 @@ class Job(Hparams, abc.ABC):
         return None #TODO
 
     @abc.abstractmethod
-    def submit(self, hparams: dict) -> str:
-        """Generate and run job script (defined by subclass).
+    def submit(self, path_to_job_script: os.PathLike) -> str:
+        """Run job script (defined by subclass).
 
         Args:
-            hparams (dict): hyperparameters
+            path_to_job_script (os.PathLike): location of job script relative to `job_out_dir`
 
         Returns:
-            str: path to script and outputs
+            str: status of job
         """
         return None #TODO
 
@@ -110,7 +139,7 @@ class LocalJob(Job):
                             help='command to start preinstalled python environment')
         return parser
 
-    def _make_script(self, hparams: dict) -> str:
+    def _create(self, hparams: dict) -> str:
         """Uses `str.format()` to fill in `template_local_shell.sh`.
 
         Args:
@@ -125,10 +154,10 @@ class LocalJob(Job):
         """Generates job script and runs it locally in shell
 
         Args:
-            hparams (dict): hyperparameters (raise exception)
+            path_to_job_script (os.PathLike): location of job script relative to `job_out_dir`
 
         Returns:
-            str: local path to script and outputs
+            str: status of job
         """
         return None #TODO
 
@@ -156,7 +185,7 @@ class RemoteSlurmJob(Job):
                             help='type of gpu to request (number is filled from hparam)')
         return parser
 
-    def _make_script(self, hparams: dict) -> str:
+    def _create(self, hparams: dict) -> str:
         """Uses `str.format()` to fill in `template_remote_slurm.sh`.
 
         Args:
@@ -171,9 +200,9 @@ class RemoteSlurmJob(Job):
         """Submits job via Slurm over ssh.
 
         Args:
-            hparams (dict): hyperparameters (raise exception)
+            path_to_job_script (os.PathLike): location of job script relative to `job_out_dir`
 
         Returns:
-            str: remote path to script and outputs
+            str: Slurm job id number and status
         """
         return None #TODO

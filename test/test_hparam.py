@@ -1,62 +1,9 @@
 import unittest
-import os
 import shlex
-import typing
-import inspect
 import warnings
 import argparse
-import importlib
 from seqmodel import hparam
-
-
-def path_to_module_name(path: os.PathLike, filename: os.PathLike) -> str:
-    """Converts path to .py file into a python module name for importing.
-    Examples: `path_to_module_name('seqmodel/task/', '__init__.py`)` returns `seqmodel.task`,
-    and `path_to_module_name('seqmodel/task/', 'ft.py`)` returns `seqmodel.task.ft`.
-
-    Args:
-        path (os.PathLike): path of directory containing file
-        filename (os.PathLike): name of file including extension `.py`
-
-    Returns:
-        str: name of module for python import
-    """
-    filepath = os.path.normpath(os.path.join(path, filename))
-    path_names = filepath.split(os.sep)
-    name, ext = os.path.splitext(path_names.pop())
-    if not ext == '.py':
-        return None
-    if not name == '__init__':
-        path_names += [name]
-    return '.'.join(path_names)
-
-
-def find_subclasses(
-        super_class: type,
-        root_dir: os.PathLike,
-        exclude: typing.List[type] = [],
-    ) -> type:
-
-    checked_modules = exclude
-
-    for path, _, files in os.walk(root_dir):  # recursively check root dir
-
-        for file in files:
-            module_name = path_to_module_name(path, file)
-            if module_name is None:
-                continue  # only import .py files
-            module = importlib.import_module(module_name)
-
-            for _, member in inspect.getmembers(module):
-                if not inspect.isclass(member):
-                    continue  # only look at classes...
-                if not issubclass(member, super_class):
-                    continue  # ...that subclass Hparams
-                if member in checked_modules:
-                    continue # ...and hasn't been checked
-
-                checked_modules.append(member)
-                yield member
+from test import find_subclasses
 
 
 class TestHparams(unittest.TestCase):
@@ -69,7 +16,7 @@ class TestHparams(unittest.TestCase):
         """
         parser = argparse.ArgumentParser()
         # recursively check source root dir, excluding base class Hparams
-        for member in find_subclasses(hparam.Hparams, '.', [hparam.Hparams]):
+        for member in find_subclasses(hparam.Hparams, ['seqmodel/'], [hparam.Hparams]):
             parser = member._default_hparams(parser)
             # check that the parser was returned
             if not isinstance(parser, argparse.ArgumentParser):
