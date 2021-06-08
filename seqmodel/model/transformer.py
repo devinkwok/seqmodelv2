@@ -26,6 +26,8 @@ class TransformerEncoder(HparamModule):
                             help='number of attention heads')
         parser.add_argument('--n_layers', default=4, type=int,
                             help='number of attention layers')
+        parser.add_argument('--dropout', default=0., type=float,
+                            help='proportion between [0., 1.] of dropout to apply between module layers.')
         return parser
 
     def forward(self, x):

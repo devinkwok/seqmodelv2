@@ -1,7 +1,20 @@
 import abc
 import shlex
 import typing
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
+
+
+# type replacing bool for argparse, see below link for justification:
+# https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise ArgumentTypeError('Boolean value expected.')
 
 
 def _to_args(hparams: dict) -> str:

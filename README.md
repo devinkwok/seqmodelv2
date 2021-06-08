@@ -72,6 +72,7 @@ Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparams
 - `run.py` combines all parsers needed to define the model objects. `job.py` has parsers which are independent of `run.py`.
 - static methods in `hparam` require an `ArgumentParser` parameter, this allows parsers from multiple objects to be combined. When operating on one object only, call that object's `default_hparams()` to get a parser.
 - use `hparam.parse_dict()` to convert between `ArgumentParser` and `dict`
+- use type `hparam.str2bool` instead of `bool` for booleans, this solves a known argparse bug
 
 For unit testing:
 - subclasses of `Hparams` must be at the top level of each module

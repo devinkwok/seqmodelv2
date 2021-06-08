@@ -1,11 +1,11 @@
 from seqmodel.dataset import Dataset
 
 
-class StridedSampler(Dataset):
+class StridedSeqSampler(Dataset):
 
     @staticmethod
     def _default_hparams(parser):
-        parser.add_argument('--seq_path', default='test/data/seq', type=str,
+        parser.add_argument('--seq_path', default='data/seq', type=str,
                             help='path to sequence files')
         parser.add_argument('--train_intervals', default=None, type=str,
                             help='path to interval files for training split, use all sequences if None.')

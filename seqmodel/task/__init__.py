@@ -12,6 +12,7 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
     """
     @staticmethod
     def _default_hparams(parser):
+        # batch
         parser.add_argument('--batch_size', default=16, type=int,
                             help='number of samples in each training minibatch')
         parser.add_argument('--valid_batch_size', default=None, type=int,
@@ -20,6 +21,11 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         parser.add_argument('--test_batch_size', default=None, type=int,
                             help='number of samples in each test minibatch,' +
                             ' set to --batch_size if None')
+        parser.add_argument('--accumulate_grad_batches', default=1, type=int,
+                            help='average over this many batches before backprop')
+        # optimizer
+        parser.add_argument('--lr', default=3e-4, type=float,
+                            help='learning rate')
         parser.add_argument('--adam_beta_1', default=0.9, type=float,
                             help='beta 1 parameter for Adam optimizer')
         parser.add_argument('--adam_beta_2', default=0.99, type=float,
@@ -28,6 +34,8 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
                             help='epsilon parameter for Adam optimizer')
         parser.add_argument('--weight_decay', default=0.01, type=float,
                             help='weight decay for Adam optimizer')
+        parser.add_argument('--gradient_clip_val', default=10., type=float,
+                            help='limit max abs gradient value, no clipping if 0')
         return parser
 
     @staticmethod
