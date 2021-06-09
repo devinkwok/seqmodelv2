@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 from argparse import ArgumentParser
 from seqmodel import hparam
 from seqmodel.dataset.sampler import StridedSeqSampler
@@ -17,11 +19,11 @@ class Initializer(hparam.Hparams):
                             help='code version number, increment if hparam functionality changes')
         parser.add_argument('--init_task', default=None, type=str,
                             help='[ptmask, ftdeepsea] objects to load')
-        parser.add_argument('--init_mode', default=None, type=str,
+        parser.add_argument('--init_mode', default='train', type=str,
                             help='[train, test] whether to run training or inference')
         parser.add_argument('--load_encoder_from_checkpoint', default=None, type=str,
-                            help='path to encoder checkpoint, replaces encoder from' +
-                                ' --load_from_checkpoint or --resume_from_checkpoint')
+                            help='path to encoder checkpoint, replaces encoder from ' +
+                                '--load_from_checkpoint or --resume_from_checkpoint')
         return parser
 
     @staticmethod
@@ -117,4 +119,5 @@ class PlTrainer(hparam.Hparams):
 if __name__ == '__main__':
     # initialize objects
     # run train/test loop
-    pass #TODO
+    print('TEST') #TODO
+    raise ValueError('TEST exception')

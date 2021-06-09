@@ -1,3 +1,20 @@
+TODO LIST
+=========
+- encapsulate searching `Hparams` dependencies of `run.py` as separate function called by `Job`.
+- separate `Hparams` as independent objects in a separate file, which are required by current objects for initialization, to avoid imports when making jobs.
+- add a tracked/untracked flag for `Hparams` objects to indicate whether `Job` should include them in canonical path.
+- separate hparams `pytorch_lightning.Trainer` from `Job` into a new `Hparams` object (untracked flag)
+- document supported `pytorch_lightning` hparams.
+- implement immediate job status reporting after submit
+- implement `replicates` in jobs, use in `new_replicate`
+- implement ssh jobs and Slurm jobs
+- add flag in jobs to submit job with '--fast_dev_run=True' to test, then without '--fast_dev_run=True'
+    if no errors.
+- unit testing `job.py`
+- document `os_interface.py`
+- reorganize `__init__.py` to import key modules instead of implementing them?
+- merge template shell files into job code as constants?
+
 SETUP
 =====
 #TODO

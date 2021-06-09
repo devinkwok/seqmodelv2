@@ -1,6 +1,8 @@
+## activate python environment
 {JOB_local_env_activate}
-## run job
-{JOB_commands} > {JOB_stdout_file} 2> {JOB_stderr_file}
+
+## run model
+{JOB_commands}
 
 ## clean up by stopping virtualenv
 deactivate

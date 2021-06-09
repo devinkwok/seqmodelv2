@@ -5,8 +5,8 @@
 #SBATCH --cpus-per-task={JOB_slurm_cpus_per_task}
 #SBATCH --gres=gpu:{JOB_slurm_gpu_type}:{JOB_slurm_n_gpu}
 #SBATCH --mem={JOB_slurm_mem}
-{JOB_slurm_stdout}
-{JOB_slurm_array}
+#SBATCH --output={JOB_slurm_stdout}
+#SBATCH --error={JOB_slurm_stderr}
 
 ## load modules
 module load nixpkgs/16.09  gcc/7.3.0 cuda/10.1 cudnn/7.6.5 python/3.7.4

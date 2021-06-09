@@ -20,8 +20,8 @@ class TransformerEncoder(HparamModule):
         parser.add_argument('--n_repr_dims', default=512, type=int,
                             help='number of dimensions in representation layer')
         parser.add_argument('--n_feedforward_dims', default=None, type=int,
-                            help='number of dimensions in feedforward (fully connected) layer,' +
-                                ' if None set to 2*n_repr_dims')
+                            help='number of dimensions in feedforward (fully connected) layer, ' +
+                                'if None set to 2*n_repr_dims')
         parser.add_argument('--n_heads', default=4, type=int,
                             help='number of attention heads')
         parser.add_argument('--n_layers', default=4, type=int,

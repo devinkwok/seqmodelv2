@@ -3,7 +3,6 @@ import os
 import argparse
 from seqmodel import job
 from seqmodel import hparam
-from test import find_subclasses
 
 
 def identical_change(param):
@@ -56,7 +55,7 @@ class TestJob(unittest.TestCase):
         """
         paths = {}
         parser = argparse.ArgumentParser()
-        for module in find_subclasses(hparam.Hparams, search_paths=[
+        for module in hparam.find_subclasses(hparam.Hparams, search_paths=[
             'seqmodel/dataset/', 'seqmodel/model/', 'seqmodel/task/', 'seqmodel/run.py'],
             exclude=[hparam.Hparams]):
             parser = module._default_hparams(parser)
@@ -84,8 +83,9 @@ class TestJob(unittest.TestCase):
         hparam_versions = {**version_dc, **version_cd, **version_di, **version_id, **version_other}
 
         # check each case for unique path
+        job_obj = job.ShellJob(job.LocalInterface())
         for key, version in hparam_versions.items():
-            strings = job.hparams_to_canonical_str(version)
+            strings = job_obj.hparams_to_canonical_str(version)
             [self.is_valid_path_component(s) for s in strings]
             canonical_path = os.path.join(*strings)
             if canonical_path in paths:

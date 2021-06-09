@@ -16,11 +16,11 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         parser.add_argument('--batch_size', default=16, type=int,
                             help='number of samples in each training minibatch')
         parser.add_argument('--valid_batch_size', default=None, type=int,
-                            help='number of samples in each validation minibatch,' +
-                            ' set to --batch_size if None')
+                            help='number of samples in each validation minibatch, ' +
+                            'set to --batch_size if None')
         parser.add_argument('--test_batch_size', default=None, type=int,
-                            help='number of samples in each test minibatch,' +
-                            ' set to --batch_size if None')
+                            help='number of samples in each test minibatch, ' +
+                            'set to --batch_size if None')
         parser.add_argument('--accumulate_grad_batches', default=1, type=int,
                             help='average over this many batches before backprop')
         # optimizer
@@ -93,4 +93,11 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         pass #TODO
 
     def configure_optimizers(self):
+        pass #TODO
+
+    def n_steps(self):
+        """Return effective number of iterations, as true number of
+        backpropagation steps since model initialization.
+        Include iterations from restored checkpoint, but not pretrained encoder.
+        """
         pass #TODO

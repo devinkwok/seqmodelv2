@@ -3,7 +3,6 @@ import shlex
 import warnings
 import argparse
 from seqmodel import hparam
-from test import find_subclasses
 
 
 class TestHparams(unittest.TestCase):
@@ -16,12 +15,12 @@ class TestHparams(unittest.TestCase):
         """
         parser = argparse.ArgumentParser()
         # recursively check source root dir, excluding base class Hparams
-        for member in find_subclasses(hparam.Hparams, ['seqmodel/'], [hparam.Hparams]):
+        for member in hparam.find_subclasses(hparam.Hparams, ['seqmodel/'], [hparam.Hparams]):
             parser = member._default_hparams(parser)
             # check that the parser was returned
             if not isinstance(parser, argparse.ArgumentParser):
-                raise ValueError(f'`{member.__name__}._default_hparams(parser)` should' +
-                    f' return type `ArgumentParser`, instead got `{parser}`.')
+                raise ValueError(f'`{member.__name__}._default_hparams(parser)` should ' +
+                    f'return type `ArgumentParser`, instead got `{parser}`.')
             # check that the class generates a valid set of default hparams
             new_parser = member.default_hparams()
             self.assertIsInstance(new_parser, argparse.ArgumentParser)
