@@ -12,8 +12,7 @@ TODO LIST
     if no errors.
 - unit testing `job.py`
 - document `os_interface.py`
-- reorganize `__init__.py` to import key modules instead of implementing them?
-- merge template shell files into job code as constants?
+- reorganize `__init__.py` to either import key modules from other files, or implement all key modules
 
 SETUP
 =====
