@@ -1,5 +1,5 @@
 from seqmodel.task.ft import Finetune
-from seqmodel.dataset import SupervisedDataset
+from seqmodel.dataset.abstract_dataset import SupervisedDataset
 
 
 class MatFileDataset(SupervisedDataset):

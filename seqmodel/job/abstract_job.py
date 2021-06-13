@@ -5,15 +5,16 @@ import typing
 import logging
 from datetime import datetime
 from argparse import ArgumentParser
-from seqmodel import hparam
+from seqmodel import Hparams
+from seqmodel import find_subclasses
 from seqmodel import VERSION
 from seqmodel.run import Initializer, Runner
 from seqmodel.job.os_interface import OsInterface
 
 
-class Job(hparam.Hparams, abc.ABC):
+class Job(Hparams, abc.ABC):
     """Represents an interface with a device for running training/inference.
-    Uses `hparam.Hparams` interface to store parameters, however only the
+    Uses `Hparams` interface to store parameters, however only the
     parameters defined by `run.py` are used to define model training/inference.
     """
 
@@ -56,7 +57,7 @@ class Job(hparam.Hparams, abc.ABC):
                             help='TODO')
         parser.add_argument('--max_steps', default=None, type=int,
                             help='TODO')
-        parser.add_argument('--terminate_on_nan', default=True, type=hparam.str2bool,
+        parser.add_argument('--terminate_on_nan', default=True, type=Hparams.str2bool,
                             help='TODO')
         parser.add_argument('--track_grad_norm', default=-1, type=int,
                             help='TODO')
@@ -66,7 +67,7 @@ class Job(hparam.Hparams, abc.ABC):
                             help='TODO')
         parser.add_argument('--limit_test_batches', default=1.0, type=float,
                             help='TODO')
-        parser.add_argument('--deterministic', default=False, type=hparam.str2bool,
+        parser.add_argument('--deterministic', default=False, type=Hparams.str2bool,
                             help='TODO')
         parser.add_argument('--check_val_every_n_epoch', default=1, type=int,
                             help='TODO')
@@ -146,11 +147,11 @@ class Job(hparam.Hparams, abc.ABC):
                 apply self.os.join() to get canonical path
         """
         default_hparams = ArgumentParser()
-        for module in hparam.find_subclasses(hparam.Hparams, search_paths=[
+        for module in find_subclasses(Hparams, search_paths=[
             'seqmodel/dataset/', 'seqmodel/model/', 'seqmodel/task/', 'seqmodel/run.py'],
-            exclude=[hparam.Hparams]):
+            exclude=[Hparams]):
             default_hparams = module._default_hparams(default_hparams)
-        changed_hparams = hparam.changed_hparams(hparams, default_hparams)
+        changed_hparams = Hparams.changed_hparams(hparams, default_hparams)
         # generate canonical string
         version_str = ''.join([
             self._fill_category(changed_hparams, 'v', [
@@ -408,14 +409,14 @@ class Job(hparam.Hparams, abc.ABC):
         """
         # check hparams are valid in run.py and find canonical_path
         parser = Initializer.get_parser(hparams)
-        hparams = hparam.parse_dict(hparams, parser)
-        hparams = hparam.changed_hparams(hparams, parser)
+        hparams = Hparams.parse_dict(hparams, parser)
+        hparams = Hparams.changed_hparams(hparams, parser)
         if replicate_path is None:
             canonical_str = self.hparams_to_canonical_str(hparams)
             canonical_path = self.os.join(*canonical_str)
             replicate_path = self.new_replicate(canonical_path)
         # update hparams with job args, canonical_path, and latest ckpts
-        job_params = hparam.changed_hparams(self.hparams, self.default_hparams())
+        job_params = Hparams.changed_hparams(self.hparams, self.default_hparams())
         hparams = {**hparams, **job_params,
             'default_root_dir': replicate_path}
         hparams = self._replace_latest_ckpt_paths(hparams)

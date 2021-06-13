@@ -1,7 +1,5 @@
-from argparse import ArgumentParser
-from seqmodel.task import Task
 import pytorch_lightning as pl
-from seqmodel.hparam import Hparams
+from seqmodel.task.abstract_task import Task
 
 
 def masked_sequence():

@@ -1,7 +1,8 @@
-from seqmodel.model import HparamModule
+import torch.nn as nn
+from seqmodel import Hparams
 
 
-class PositionEncoder(HparamModule):
+class PositionEncoder(Hparams, nn.Module):
 
     @staticmethod
     def _default_hparams(parser):
@@ -13,7 +14,7 @@ class PositionEncoder(HparamModule):
         return x #TODO
 
 
-class TransformerEncoder(HparamModule):
+class TransformerEncoder(Hparams, nn.Module):
 
     @staticmethod
     def _default_hparams(parser):

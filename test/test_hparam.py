@@ -2,7 +2,8 @@ import unittest
 import shlex
 import warnings
 import argparse
-from seqmodel import hparam
+from seqmodel import Hparams
+from seqmodel import find_subclasses
 
 
 class TestHparams(unittest.TestCase):
@@ -15,7 +16,7 @@ class TestHparams(unittest.TestCase):
         """
         parser = argparse.ArgumentParser()
         # recursively check source root dir, excluding base class Hparams
-        for member in hparam.find_subclasses(hparam.Hparams, ['seqmodel/'], [hparam.Hparams]):
+        for member in find_subclasses(Hparams, ['seqmodel/'], [Hparams]):
             parser = member._default_hparams(parser)
             # check that the parser was returned
             if not isinstance(parser, argparse.ArgumentParser):
@@ -24,7 +25,7 @@ class TestHparams(unittest.TestCase):
             # check that the class generates a valid set of default hparams
             new_parser = member.default_hparams()
             self.assertIsInstance(new_parser, argparse.ArgumentParser)
-            hparams = hparam.default_to_dict(new_parser)
+            hparams = Hparams.default_to_dict(new_parser)
             self.assertIsInstance(hparams, dict)
             if len(hparams) == 0:
                 warnings.warn(f'`{member.__name__}` class extends `Hparams` but has no default hparams.')
@@ -34,10 +35,10 @@ class TestHparams(unittest.TestCase):
             if a.help is None or a.help == '':
                 raise ValueError(f'Help string for hparam `{a.dest}` empty or not defined.')
 
-    class TestClass(hparam.Hparams):
+    class TestClass(Hparams):
         def _default_hparams(parser):
             parser.add_argument('--a', default=0, type=int, help='a')
-            parser.add_argument('--b', default=True, type=hparam.str2bool, help='b')
+            parser.add_argument('--b', default=True, type=Hparams.str2bool, help='b')
             parser.add_argument('--s', default='test', type=str, help='s')
             return parser
 
@@ -63,32 +64,32 @@ class TestHparams(unittest.TestCase):
         parser = argparse.ArgumentParser()
         parser = self.TestClass._default_hparams(parser)
         # get defaults as dict
-        hparams = hparam.default_to_dict(parser)
+        hparams = Hparams.default_to_dict(parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': True, 's': 'test'})
         # parse correct args
-        hparams = hparam.parse_dict({'a': -5, 'b': False, 's': 'test2'}, parser)
+        hparams = Hparams.parse_dict({'a': -5, 'b': False, 's': 'test2'}, parser)
         self.assertDictEqual(hparams, {'a': -5, 'b': False, 's': 'test2'})
         # parse subset of hparams
-        hparams = hparam.parse_dict({'b': False}, parser)
+        hparams = Hparams.parse_dict({'b': False}, parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': False, 's': 'test'})
         # parse wrong type
         with self.assertRaises(SystemExit):
-            hparam.parse_dict({'a': 'string'}, parser)
+            Hparams.parse_dict({'a': 'string'}, parser)
         with self.assertRaises(SystemExit):
-            hparam.parse_dict({'c': -4}, parser)
+            Hparams.parse_dict({'c': -4}, parser)
         # parse known hparams only
-        hparams = hparam.parse_known_dict({'c': 'string'}, parser)
+        hparams = Hparams.parse_known_dict({'c': 'string'}, parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': True, 's': 'test'})
 
     def test_default_hparams(self):
         # subclass inherits hparams
         parser = self.TestSubClassA.default_hparams()
-        hparams = hparam.default_to_dict(parser)
+        hparams = Hparams.default_to_dict(parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': True, 's': 'test', 'c': 1})
 
         # sub-subclass inherits from subclass
         parser = self.TestSubClassB.default_hparams()
-        hparams = hparam.default_to_dict(parser)
+        hparams = Hparams.default_to_dict(parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': True, 's': 'test', 'c': 1, 'd': 2})
 
         class TestSubClassC(self.TestClass):
@@ -97,17 +98,17 @@ class TestHparams(unittest.TestCase):
                 return parser
         # another subclass inherits independently
         parser = TestSubClassC.default_hparams()
-        hparams = hparam.default_to_dict(parser)
+        hparams = Hparams.default_to_dict(parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': True, 's': 'test', 'e': 3})
 
-        class TestClassExtra(hparam.Hparams):
+        class TestClassExtra(Hparams):
             def _default_hparams(parser):
                 parser.add_argument('--e', default=3, type=int, help='f')
                 return parser
         # parser can string together independent subclasses
         parser = self.TestClass.default_hparams()
         parser = TestClassExtra.default_hparams(parser)
-        hparams = hparam.default_to_dict(parser)
+        hparams = Hparams.default_to_dict(parser)
         self.assertDictEqual(hparams, {'a': 0, 'b': True, 's': 'test', 'e': 3})
 
         # cannot combine non-unique hparams
@@ -126,44 +127,44 @@ class TestHparams(unittest.TestCase):
     def test_changed_hparams(self):
         parser = self.TestClass.default_hparams()
         # compare no hparams
-        non_default = hparam.changed_hparams({}, parser)
+        non_default = Hparams.changed_hparams({}, parser)
         self.assertDictEqual(non_default, {})
         # compare unchanged hparams
-        non_default = hparam.changed_hparams(hparam.default_to_dict(parser), parser)
+        non_default = Hparams.changed_hparams(Hparams.default_to_dict(parser), parser)
         self.assertDictEqual(non_default, {})
         # compare partially changed hparams
-        non_default = hparam.changed_hparams({'a': 1, 'b': True, 's': 'test', }, parser)
+        non_default = Hparams.changed_hparams({'a': 1, 'b': True, 's': 'test', }, parser)
         self.assertDictEqual(non_default, {'a': 1})
         # omit some hparams
-        non_default = hparam.changed_hparams({'a': 1}, parser)
+        non_default = Hparams.changed_hparams({'a': 1}, parser)
         self.assertDictEqual(non_default, {'a': 1})
         # compare all changed hparams
-        non_default = hparam.changed_hparams({'a': 1, 'b': False, 's': 'test2', }, parser)
+        non_default = Hparams.changed_hparams({'a': 1, 'b': False, 's': 'test2', }, parser)
         self.assertDictEqual(non_default, {'a': 1, 'b': False, 's': 'test2', })
         # compare undefined hparam
         with self.assertRaises(ValueError):
-            hparam.changed_hparams({'c': 0}, parser)
+            Hparams.changed_hparams({'c': 0}, parser)
 
     def test_to_args(self):
         parser = self.TestClass.default_hparams()
         # generate arbitrary command
-        command = hparam.to_args({'a': 0, 'b': True, 's': 'test'})
+        command = Hparams.to_args({'a': 0, 'b': True, 's': 'test'})
         self.assertEqual(command, '--a=0 --b=True --s=test')
         args = parser.parse_args(command.split(' '))
         self.assertDictEqual(vars(args), {'a': 0, 'b': True, 's': 'test'})
         # generate command equivalent to defaults
-        command = hparam.to_args({'a': 0, 'b': True, 's': 'test'}, default_hparams=parser)
+        command = Hparams.to_args({'a': 0, 'b': True, 's': 'test'}, default_hparams=parser)
         self.assertEqual(command, '')
         args = parser.parse_args([])
         self.assertDictEqual(vars(args), {'a': 0, 'b': True, 's': 'test'})
         # include defaults in command
-        command = hparam.to_args({'a': 0, 'b': True, 's': 'test'}, default_hparams=parser, include_default=True)
+        command = Hparams.to_args({'a': 0, 'b': True, 's': 'test'}, default_hparams=parser, include_default=True)
         self.assertEqual(command, '--a=0 --b=True --s=test')
         args = parser.parse_args(command.split(' '))
         self.assertDictEqual(vars(args), {'a': 0, 'b': True, 's': 'test'})
         # override some defaults, and include spaces in command string arg
         parser = self.TestSubClassA.default_hparams()
-        command = hparam.to_args({'b': False, 's': 'test 2', 'c': 10}, default_hparams=parser)
+        command = Hparams.to_args({'b': False, 's': 'test 2', 'c': 10}, default_hparams=parser)
         self.assertEqual(command, '--b=False --s=\'test 2\' --c=10')
         args = parser.parse_args(shlex.split(command))
         self.assertDictEqual(vars(args), {'a': 0, 'b': False, 's': 'test 2', 'c': 10})
@@ -176,7 +177,7 @@ class TestHparams(unittest.TestCase):
 
     def test_init(self):
         # initialize with defaults
-        default_hparams = hparam.default_to_dict(self.TestClass.default_hparams())
+        default_hparams = Hparams.default_to_dict(self.TestClass.default_hparams())
         obj = self.TestClass(**default_hparams)
         self.assertHasAttr(obj, default_hparams)
         # ignore undefined hparam

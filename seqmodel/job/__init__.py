@@ -1,4 +1,7 @@
 # type: ignore
+
+from seqmodel.job.abstract_job import Job
+
 from seqmodel.job.shell_job import ShellJob
 from seqmodel.job.slurm_job import SlurmJob
 

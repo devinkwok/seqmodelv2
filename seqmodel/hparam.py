@@ -63,115 +63,6 @@ def find_subclasses(
             yield member
 
 
-# type replacing bool for argparse, see below link for justification:
-# https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise ArgumentTypeError('Boolean value expected.')
-
-
-def _to_args(hparams: dict) -> str:
-    """Converts hparams to command line arg string. Doesn't check for valid values.
-
-    Args:
-        hparams (dict): hparams
-
-    Returns:
-        str: commands
-    """
-    commands = [f'--{k}={shlex.quote(str(v))}' for k, v in hparams.items()]
-    return ' '.join(commands)
-
-def parse_dict(hparams: dict, default_hparams: ArgumentParser) -> dict:
-    """Parses `hparams` as if it were command line arguments.
-    Returns default values only if `hparams={}`.
-
-    Args:
-        hparams (dict): to compare against `default_hparams`.
-            If `hparams` is None or empty, returns default values only.
-        default_hparams (ArgumentParser): containing default hparams.
-
-    Returns:
-        dict: contains `hparams` combined with `default_hparams`
-    """
-    commands = _to_args(hparams)
-    args = default_hparams.parse_args(shlex.split(commands))
-    return vars(args)
-
-def parse_known_dict(hparams: dict, default_hparams: ArgumentParser) -> dict:
-    """Parses `hparams` but ignoring keys not in default_hparams.
-
-    Args:
-        hparams (dict): to compare against `default_hparams`.
-            If `hparams` is None or empty, returns default values only.
-        default_hparams (ArgumentParser): containing default hparams.
-
-    Returns:
-        dict: contains `hparams` combined with `default_hparams`
-    """
-    known_hparams = {}
-    for k in default_to_dict(default_hparams).keys():
-        if k in hparams:
-            known_hparams[k] = hparams[k]
-    return parse_dict(known_hparams, default_hparams)
-
-def default_to_dict(default_hparams: ArgumentParser) -> dict:
-    """Calls `parse_dict` where `hparams` is not set.
-
-    Args:
-        default_hparams (ArgumentParser): containing default hparams.
-
-    Returns:
-        dict: contains `hparams` combined with `default_hparams`
-    """
-    return parse_dict({}, default_hparams)
-
-def changed_hparams(hparams: dict, default_hparams: ArgumentParser) -> dict:
-    """Returns items in `hparams` which differ from defaults in `default_hparams`.
-    Ignores items which are not present in `hparams` but exist in `default_hparams`.
-
-    Args:
-        default_hparams (ArgumentParser): containing default hparams.
-        hparams (dict): to compare against default_hparams.
-
-    Returns:
-        dict[str, Any]: items in `hparams` with keys in `default_hparams`,
-            whose values are different.
-    """
-    defaults = default_to_dict(default_hparams)
-    changed = {}
-    for k, v in hparams.items():
-        if k not in defaults:
-            raise ValueError(f'Undefined hparam {k}: {v} not in {defaults}')
-        if defaults[k] != v:
-            changed[k] = v
-    return changed
-
-def to_args(hparams: dict, default_hparams: ArgumentParser = None, include_default: bool = False) -> str:
-    """Converts hparams to command line flags.
-
-    Args:
-        default_hparams (ArgumentParser): containing default hparams.
-        hparams (dict): to compare against default_hparams.
-        include_default (bool): if False, apply changed_hparams() first to exclude defaults
-
-    Returns:
-        str: command line flags.
-    """
-    if default_hparams is not None:
-        if include_default:
-            hparams = parse_dict(hparams, default_hparams)
-        else:
-            hparams = changed_hparams(hparams, default_hparams)
-    return _to_args(hparams)
-
-
 class Hparams(abc.ABC):
     """
     Abstract class for objects which register hyperparameters.
@@ -220,8 +111,122 @@ class Hparams(abc.ABC):
         Args:
             hparams (dict): dict of hparams
         """
-        known_hparams = parse_known_dict(hparams, self.default_hparams())
+        known_hparams = Hparams.parse_known_dict(hparams, self.default_hparams())
         self.hparams = AttributeDict(known_hparams)
+
+    # type replacing bool for argparse, see below link for justification:
+    # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+    @staticmethod
+    def str2bool(v):
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ('yes', 'true', 't', 'y', '1'):
+            return True
+        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+            return False
+        else:
+            raise ArgumentTypeError('Boolean value expected.')
+
+    @staticmethod
+    def _to_args(hparams: dict) -> str:
+        """Converts hparams to command line arg string. Doesn't check for valid values.
+
+        Args:
+            hparams (dict): hparams
+
+        Returns:
+            str: commands
+        """
+        commands = [f'--{k}={shlex.quote(str(v))}' for k, v in hparams.items()]
+        return ' '.join(commands)
+
+    @staticmethod
+    def parse_dict(hparams: dict, default_hparams: ArgumentParser) -> dict:
+        """Parses `hparams` as if it were command line arguments.
+        Returns default values only if `hparams={}`.
+
+        Args:
+            hparams (dict): to compare against `default_hparams`.
+                If `hparams` is None or empty, returns default values only.
+            default_hparams (ArgumentParser): containing default hparams.
+
+        Returns:
+            dict: contains `hparams` combined with `default_hparams`
+        """
+        commands = Hparams._to_args(hparams)
+        args = default_hparams.parse_args(shlex.split(commands))
+        return vars(args)
+
+    @staticmethod
+    def parse_known_dict(hparams: dict, default_hparams: ArgumentParser) -> dict:
+        """Parses `hparams` but ignoring keys not in default_hparams.
+
+        Args:
+            hparams (dict): to compare against `default_hparams`.
+                If `hparams` is None or empty, returns default values only.
+            default_hparams (ArgumentParser): containing default hparams.
+
+        Returns:
+            dict: contains `hparams` combined with `default_hparams`
+        """
+        known_hparams = {}
+        for k in Hparams.default_to_dict(default_hparams).keys():
+            if k in hparams:
+                known_hparams[k] = hparams[k]
+        return Hparams.parse_dict(known_hparams, default_hparams)
+
+    @staticmethod
+    def default_to_dict(default_hparams: ArgumentParser) -> dict:
+        """Calls `parse_dict` where `hparams` is not set.
+
+        Args:
+            default_hparams (ArgumentParser): containing default hparams.
+
+        Returns:
+            dict: contains `hparams` combined with `default_hparams`
+        """
+        return Hparams.parse_dict({}, default_hparams)
+
+    @staticmethod
+    def changed_hparams(hparams: dict, default_hparams: ArgumentParser) -> dict:
+        """Returns items in `hparams` which differ from defaults in `default_hparams`.
+        Ignores items which are not present in `hparams` but exist in `default_hparams`.
+
+        Args:
+            default_hparams (ArgumentParser): containing default hparams.
+            hparams (dict): to compare against default_hparams.
+
+        Returns:
+            dict[str, Any]: items in `hparams` with keys in `default_hparams`,
+                whose values are different.
+        """
+        defaults = Hparams.default_to_dict(default_hparams)
+        changed = {}
+        for k, v in hparams.items():
+            if k not in defaults:
+                raise ValueError(f'Undefined hparam {k}: {v} not in {defaults}')
+            if defaults[k] != v:
+                changed[k] = v
+        return changed
+
+    @staticmethod
+    def to_args(hparams: dict, default_hparams: ArgumentParser = None, include_default: bool = False) -> str:
+        """Converts hparams to command line flags.
+
+        Args:
+            default_hparams (ArgumentParser): containing default hparams.
+            hparams (dict): to compare against default_hparams.
+            include_default (bool): if False, apply changed_hparams() first to exclude defaults
+
+        Returns:
+            str: command line flags.
+        """
+        if default_hparams is not None:
+            if include_default:
+                hparams = Hparams.parse_dict(hparams, default_hparams)
+            else:
+                hparams = Hparams.changed_hparams(hparams, default_hparams)
+        return Hparams._to_args(hparams)
 
 
 class AttributeDict(typing.Dict):

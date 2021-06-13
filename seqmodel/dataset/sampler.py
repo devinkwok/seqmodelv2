@@ -1,4 +1,4 @@
-from seqmodel.dataset import UnsupervisedDataset
+from seqmodel.dataset.abstract_dataset import UnsupervisedDataset
 
 
 class StridedSeqSampler(UnsupervisedDataset):

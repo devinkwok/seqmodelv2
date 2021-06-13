@@ -3,7 +3,8 @@ import os
 import shutil
 import argparse
 from seqmodel import job
-from seqmodel import hparam
+from seqmodel import Hparams
+from seqmodel import find_subclasses
 
 
 def identical_change(param):
@@ -71,14 +72,14 @@ class TestJob(unittest.TestCase):
         """
         paths = {}
         parser = argparse.ArgumentParser()
-        for module in hparam.find_subclasses(hparam.Hparams, search_paths=[
+        for module in find_subclasses(Hparams, search_paths=[
             'seqmodel/dataset/', 'seqmodel/model/', 'seqmodel/task/', 'seqmodel/run.py'],
-            exclude=[hparam.Hparams]):
+            exclude=[Hparams]):
             parser = module._default_hparams(parser)
 
         # create test cases
         # base dicts to generate cases from: defaults, with variable changes, with identical changes
-        default_hparams = hparam.default_to_dict(parser)
+        default_hparams = Hparams.default_to_dict(parser)
         hparams_changed = apply_all(default_hparams, variable_change)
         hparams_identical = apply_all(default_hparams, identical_change)
         # cases: one non-default only

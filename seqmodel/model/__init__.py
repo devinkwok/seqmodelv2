@@ -1,10 +1,6 @@
-import abc
-import torch.nn as nn
-from seqmodel.hparam import Hparams
+# type: ignore
 
+from seqmodel.model.transformer import PositionEncoder
+from seqmodel.model.transformer import TransformerEncoder
 
-class HparamModule(nn.Module, Hparams, abc.ABC):
-
-    @staticmethod
-    def _default_hparams(parser):
-        return parser
+from seqmodel.model.decoder import LinearDecoder

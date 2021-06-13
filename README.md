@@ -1,6 +1,5 @@
 TODO LIST
 =========
-- reorganize `__init__.py` to either import key modules from other files, or implement all key modules
 - separate `Hparams` as independent objects in a separate file, which are required by current objects for initialization, to avoid imports when making jobs.
     - separate hparams `pytorch_lightning.Trainer` from `Job` into a new `Hparams` object (untracked flag)
     - encapsulate searching `Hparams` dependencies of `run.py` as separate function called by `Job`.

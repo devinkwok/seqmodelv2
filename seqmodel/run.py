@@ -3,16 +3,18 @@ sys.path.append('.')
 import logging
 from datetime import datetime
 from argparse import ArgumentParser
-from seqmodel import hparam
-from seqmodel.dataset.sampler import StridedSeqSampler
-from seqmodel.model.decoder import LinearDecoder
-from seqmodel.model.transformer import PositionEncoder, TransformerEncoder
+from seqmodel import Hparams
+from seqmodel.dataset import StridedSeqSampler
+from seqmodel.model import LinearDecoder
+from seqmodel.model import PositionEncoder
+from seqmodel.model import TransformerEncoder
 from seqmodel.task import Task
-from seqmodel.task.pt_mask import PtMask
-from seqmodel.task.ft_deepsea import MatFileDataset, FtDeepSEA
+from seqmodel.task import PtMask
+from seqmodel.task import MatFileDataset
+from seqmodel.task import FtDeepSEA
 
 
-class Initializer(hparam.Hparams):
+class Initializer(Hparams):
     """Wrapper for hparams needed to initialize dataset/model/task.
     """
     @staticmethod
@@ -51,7 +53,7 @@ class Initializer(hparam.Hparams):
         if args is None:  # get args from system
             init_args = vars(parser.parse_known_args())
         else:  # use supplied args from dict
-            init_args = hparam.parse_known_dict(args, parser)
+            init_args = parse_known_dict(args, parser)
 
         # model objects
         parser = PositionEncoder.default_hparams(parser)
@@ -92,7 +94,7 @@ class Initializer(hparam.Hparams):
         if args is None:
             hparams = vars(parser.parse_known_args())
         else:  # use supplied args from dict
-            hparams = hparam.parse_known_dict(args, parser)
+            hparams = parse_known_dict(args, parser)
         # model objects
         pos_encoder = PositionEncoder(**hparams)
         encoder = TransformerEncoder(pos_encoder, **hparams)
@@ -125,7 +127,7 @@ class Initializer(hparam.Hparams):
         return task
 
 
-class PlTrainer(hparam.Hparams):
+class PlTrainer(Hparams):
 
     @staticmethod
     def _default_hparams(parser):

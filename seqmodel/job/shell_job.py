@@ -1,5 +1,5 @@
 import os
-from seqmodel import hparam
+from seqmodel import Hparams
 from seqmodel.job.abstract_job import Job
 
 
@@ -23,7 +23,7 @@ class ShellJob(Job):
         Returns:
             str: filled in `template_shell.sh`
         """
-        args = hparam.to_args(hparams)
+        args = Hparams.to_args(hparams)
         root_dir = hparams['default_root_dir']
         stdout_file = self.os.join(root_dir, self.STDOUT_FILENAME)
         stderr_file = self.os.join(root_dir, self.STDERR_FILENAME)

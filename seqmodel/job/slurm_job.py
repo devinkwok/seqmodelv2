@@ -1,6 +1,6 @@
 import os
 from datetime import timedelta
-from seqmodel import hparam
+from seqmodel import Hparams
 from seqmodel.job.abstract_job import Job
 
 
@@ -51,7 +51,7 @@ class SlurmJob(Job):
         Returns:
             str: filled in `template_slurm.sh`
         """
-        args = hparam.to_args(hparams)
+        args = Hparams.to_args(hparams)
         command_str = f'python seqmodel/run.py {args}'
 
         script = self.template.format(

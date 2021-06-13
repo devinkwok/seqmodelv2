@@ -1,12 +1,12 @@
-from seqmodel import hparam
-from seqmodel.task import Task
+from seqmodel import Hparams
+from seqmodel.task.abstract_task import Task
 
 
 class Finetune(Task):
 
     @staticmethod
     def _default_hparams(parser):
-        parser.add_argument('--sum_representation', default=True, type=hparam.str2bool,
+        parser.add_argument('--sum_representation', default=True, type=Hparams.str2bool,
                             help='if True, use mean of representation vectors ' +
                                 'over all sequence positions for classification, ' +
                                 'else use representation from first position.')
