@@ -1,8 +1,8 @@
 from seqmodel.task.ft import Finetune
-from seqmodel.dataset import Dataset
+from seqmodel.dataset import SupervisedDataset
 
 
-class MatFileDataset(Dataset):
+class MatFileDataset(SupervisedDataset):
 
     @staticmethod
     def _default_hparams(parser):
@@ -24,6 +24,14 @@ class MatFileDataset(Dataset):
             torch.utils.DataLoader: data loader object
         """
         return None #TODO
+
+    @property
+    def source_dims(self) -> int:
+        return len(self.alphabet)  #TODO
+
+    @property
+    def target_dims(self) -> int:
+        return self.n_class  #TODO
 
 
 class FtDeepSEA(Finetune):

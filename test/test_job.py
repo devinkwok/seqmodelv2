@@ -1,5 +1,6 @@
 import unittest
 import os
+import shutil
 import argparse
 from seqmodel import job
 from seqmodel import hparam
@@ -46,6 +47,21 @@ def merge_one(hparams: dict, change_source: dict, merge_bool=True):
 
 class TestJob(unittest.TestCase):
 
+    TEST_DATA_SOURCE = 'test/data'
+    TEST_DATA = 'test/out'
+
+    def setUp(self) -> None:
+        self.job_obj = job.ShellJob(job.LocalInterface(), job_out_dir=self.TEST_DATA)
+        if os.path.exists(self.TEST_DATA):
+            shutil.rmtree(self.TEST_DATA)
+        shutil.copytree(self.TEST_DATA_SOURCE, self.TEST_DATA)
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        if os.path.exists(self.TEST_DATA):
+            shutil.rmtree(self.TEST_DATA)
+        return super().tearDown()
+
     def test_hparams_to_canonical_str(self):
         """Check every registered hparam in `dataset`, `model`, `task`, and `run.py`
         to see if a unique representation is returned by `hparams_to_canonical_str`.
@@ -83,9 +99,8 @@ class TestJob(unittest.TestCase):
         hparam_versions = {**version_dc, **version_cd, **version_di, **version_id, **version_other}
 
         # check each case for unique path
-        job_obj = job.ShellJob(job.LocalInterface())
         for key, version in hparam_versions.items():
-            strings = job_obj.hparams_to_canonical_str(version)
+            strings = self.job_obj.hparams_to_canonical_str(version)
             [self.is_valid_path_component(s) for s in strings]
             canonical_path = os.path.join(*strings)
             if canonical_path in paths:
@@ -107,3 +122,48 @@ class TestJob(unittest.TestCase):
             os.stat(component)
         except FileNotFoundError:
             pass  # this is fine, only checking that the component is valid
+
+    def test_replicates(self):
+        # look in test/data/replicates
+        path = self.job_obj.os.join(self.TEST_DATA, 'replicates')
+        # ignore replicate 0 (index from 1), replicates 2-3 do not exist
+        self.assertReplicateListEqual(*self.job_obj.replicates(path),
+            ['01', '4', '05', '06', '99', '107', '108'])
+        # replicate 1 is empty
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'empty'}), ['01'])
+        # replicate 4 exists but is not run
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'created'}), ['4'])
+        # replicate 5 started
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'started'}), ['05'])
+        # replicate 6 is running
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'running'}), ['06'])
+        # replicate 99 completed successfully
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'complete'}), ['99'])
+        # replicate 107 terminated with error
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'error'}), ['107'])
+        # replicate 108 terminated with timeout
+        self.assertReplicateListEqual(
+            *self.job_obj.replicates(path, include={'timeout'}), ['108'])
+
+    def assertReplicateListEqual(self, replicates, paths, target):
+        self.assertEqual(len(replicates), len(target))
+        self.assertEqual(len(paths), len(target))
+        for dir in target:
+            self.assertTrue(int(dir) in replicates)
+            self.assertTrue((dir + self.job_obj.os.sep) in paths)
+
+    def test_new_replicate(self):
+        # dir without replicates, next replicate is 1
+        next_replicate = self.job_obj.new_replicate('no-replicates')
+        self.assertEqual(next_replicate, self.job_obj.os.join(
+            self.TEST_DATA, 'no-replicates', '01'))
+        # dir with replicates, next replicate is 109
+        next_replicate = self.job_obj.new_replicate('replicates')
+        self.assertEqual(next_replicate, self.job_obj.os.join(
+            self.TEST_DATA, 'replicates', '109'))

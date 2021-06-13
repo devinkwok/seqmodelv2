@@ -1,0 +1,12 @@
+non-relevant line
+non-relevant line
+
+[2021-06-12 16:24:04,516] [CRITICAL] - seqmodel/run.py terminated with ERROR.
+Traceback (most recent call last):
+  File "seqmodel/run.py", line 176, in <module>
+    Runner().run()
+  File "seqmodel/run.py", line 172, in run
+    raise e
+  File "seqmodel/run.py", line 166, in run
+    raise ValueError('TEST exception')
+ValueError: TEST exception

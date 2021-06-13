@@ -1,5 +1,5 @@
 import typing
-from seqmodel.job import Job
+from seqmodel.job.abstract_job import Job
 
 
 def grid_search(job_base: Job, hparam_base: dict, grid_hparams: typing.Dict[str, list]):

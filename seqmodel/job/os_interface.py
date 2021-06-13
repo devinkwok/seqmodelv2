@@ -30,6 +30,10 @@ class OsInterface(abc.ABC):
         return None
 
     @abc.abstractmethod
+    def type_of(self, path: os.PathLike) -> str:
+        return None
+
+    @abc.abstractmethod
     def read(self, file_path: os.PathLike):
         pass
 
@@ -63,12 +67,23 @@ class LocalInterface(OsInterface):
 
     def list(self, path: os.PathLike, suffix: str = None) -> typing.List[os.PathLike]:
         paths = []
+        if not os.path.isdir(path):
+            return paths
         for f in os.listdir(path):
             if os.path.isdir(os.path.join(path, f)):
                 f = f + '/'
             if suffix is None or f.endswith(suffix):
                 paths.append(f)
         return paths
+
+    def type_of(self, path: os.PathLike) -> str:
+        if os.path.isfile(path):
+            return 'file'
+        if os.path.isdir(path):
+            return 'dir'
+        if os.path.exists(path):
+            return 'other'
+        return 'none'
 
     def read(self, file_path: os.PathLike):
         pass #TODO

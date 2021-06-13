@@ -20,3 +20,23 @@ class Dataset(Hparams, abc.ABC):
             torch.utils.DataLoader: data loader object
         """
         return None #TODO
+
+
+class UnsupervisedDataset(Dataset, abc.ABC):
+
+    @property
+    @abc.abstractmethod
+    def source_dims(self) -> int:
+        """Number of dimensions per sequence position.
+        """
+        return None #TODO
+
+
+class SupervisedDataset(UnsupervisedDataset, abc.ABC):
+
+    @property
+    @abc.abstractmethod
+    def target_dims(self) -> int:
+        """Number of dimensions per sequence position.
+        """
+        return None #TODO

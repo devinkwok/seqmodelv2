@@ -1,5 +1,7 @@
 import sys
 sys.path.append('.')
+import logging
+from datetime import datetime
 from argparse import ArgumentParser
 from seqmodel import hparam
 from seqmodel.dataset.sampler import StridedSeqSampler
@@ -24,6 +26,9 @@ class Initializer(hparam.Hparams):
         parser.add_argument('--load_encoder_from_checkpoint', default=None, type=str,
                             help='path to encoder checkpoint, replaces encoder from ' +
                                 '--load_from_checkpoint or --resume_from_checkpoint')
+        # pytorch_lightning
+        parser.add_argument('--precision', default=16, type=int,
+                            help='32 or 16 bit training')
         return parser
 
     @staticmethod
@@ -73,23 +78,7 @@ class Initializer(hparam.Hparams):
         return parser
 
     @staticmethod
-    def _initialize_objects(hparams: dict) -> Task:
-        """Initializes objects from hparams
-
-        Args:
-            hparams (dict): parsed hyperparameters
-
-        Returns:
-            Task: object subclassing `Task`
-        """
-        dataset = None #TODO
-        encoder = None #TODO
-        decoder = None #TODO
-        task = None #TODO
-        return task
-
-    @staticmethod
-    def initialize_objects(parser: ArgumentParser) -> Task:
+    def initialize_objects(self, args: dict = None) -> Task:
         """Initializes objects from parser (calls `_initialize_objects`).
 
         Args:
@@ -98,11 +87,43 @@ class Initializer(hparam.Hparams):
         Returns:
             Task: object subclassing `Task`
         """
-        return None #TODO
+        parser = self.get_parser(args)
+        parser = Initializer.default_hparams(parser)
+        if args is None:
+            hparams = vars(parser.parse_known_args())
+        else:  # use supplied args from dict
+            hparams = hparam.parse_known_dict(args, parser)
+        # model objects
+        pos_encoder = PositionEncoder(**hparams)
+        encoder = TransformerEncoder(pos_encoder, **hparams)
 
-        @staticmethod
-        def load_encoder_from_checkpoint(ckpt_path: str):
-            return None #TODO
+        # data and task objects
+        if hparams['init_task'] == 'ptmask':
+            dataset = StridedSeqSampler(**hparams)
+            decoder = LinearDecoder(
+                encoder.hparams.n_repr_dims,
+                dataset.source_dims,
+                **hparams)
+            task = PtMask(dataset, encoder, decoder, **hparams)
+        elif hparams['init_task'] == 'ftdeepsea':
+            dataset = MatFileDataset(**hparams)
+            decoder = LinearDecoder(
+                encoder.hparams.n_repr_dims,
+                dataset.target_dims,
+                **hparams)
+            task = FtDeepSEA(dataset, encoder, decoder, **hparams)
+        else:
+            raise ValueError(f"Invalid model type {hparams['init_task']}.")
+
+        # version specific behaviour
+        if hparams['init_version'] == '0.0.0' or \
+                hparams['init_version'] == '0.0.1':
+            pass  # no version specific behaviour yet
+        else:
+            raise ValueError(f"Unknown seqmodel version {hparams['init_version']}")
+
+        return task
+
 
 class PlTrainer(hparam.Hparams):
 
@@ -116,8 +137,51 @@ class PlTrainer(hparam.Hparams):
         """
         pass
 
+
+class Runner():
+
+    START_MESSAGE = 'seqmodel/run.py started.'
+    END_MESSAGE = 'seqmodel/run.py finished.'
+    ERROR_MESSAGE = 'seqmodel/run.py terminated with ERROR.'
+    LOG_FORMAT_RE = '\[(.+)\] \[{LOG_level}\] - '
+
+    def run(self):
+        log_format = logging.Formatter('[%(asctime)s] [%(levelname)s] - %(message)s')
+        self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.INFO)
+        # writing to stdout
+        out = logging.StreamHandler(sys.stdout)
+        out.setLevel(logging.INFO)
+        out.setFormatter(log_format)
+        self.log.addHandler(out)
+        # writing to stderr
+        err = logging.StreamHandler(sys.stderr)
+        err.setLevel(logging.ERROR)
+        err.setFormatter(log_format)
+        self.log.addHandler(err)
+
+        try:
+            # indicate running
+            self.log.info(self.START_MESSAGE)
+            # initialize objects
+            # run train/test loop
+
+            #TODO testing
+            import time
+            time.sleep(30)
+            #TODO testing exception handling
+            if datetime.now() is None:
+                raise ValueError('TEST exception')
+
+            # indicate successful completion
+            self.log.info(self.END_MESSAGE)
+            sys.exit(0)
+        except Exception as e:
+            # indicate error
+            self.log(e)
+            self.log.critical(self.ERROR_MESSAGE)
+            sys.exit(1)
+
+
 if __name__ == '__main__':
-    # initialize objects
-    # run train/test loop
-    print('TEST') #TODO
-    raise ValueError('TEST exception')
+    Runner().run()

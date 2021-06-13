@@ -10,6 +10,8 @@ class ShellJob(Job):
     def _default_hparams(parser):
         parser.add_argument('--activate_env_command', default='source env/bin/activate', type=str,
                             help='command to start preinstalled python environment')
+        parser.add_argument('--deactivate_env_command', default='deactivate', type=str,
+                            help='command to stop preinstalled python environment')
         return parser
 
     def _create(self, hparams: dict) -> str:
@@ -30,6 +32,7 @@ class ShellJob(Job):
         script = self.template.format(
                 JOB_local_env_activate=self.hparams.activate_env_command,
                 JOB_commands=command_str,
+                JOB_local_env_deactivate=self.hparams.deactivate_env_command,
             )
         return script
 
@@ -42,11 +45,11 @@ class ShellJob(Job):
         Returns:
             str: status of job
         """
-        replicate_path, script_file = self.os.split(path_to_job_script)
+        replicate_path, _ = self.os.split(path_to_job_script)
         stdout_file = self.os.join(replicate_path, self.STDOUT_FILENAME)
         stderr_file = self.os.join(replicate_path, self.STDERR_FILENAME)
         self.os.command(f'chmod +r {path_to_job_script}')
-        self.os.command(f'sh {path_to_job_script} > {stdout_file} 2> {stderr_file}')
+        self.os.command(f'sh {path_to_job_script} > {stdout_file} 2> {stderr_file} &')
         return None #TODO
 
     template = \
@@ -56,4 +59,7 @@ class ShellJob(Job):
 
 ## run model
 {JOB_commands}
+
+## deactivate python environment
+{JOB_local_env_deactivate}
 """
