@@ -52,25 +52,27 @@ class Job(Hparams, abc.ABC):
         parser.add_argument('--num_processes', default=1, type=int,
                             help='TODO')
         parser.add_argument('--resume_from_checkpoint', default=None, type=str,
-                            help='TODO')
+                            help='path to checkpoint to load (pytorch lightning)')
         parser.add_argument('--max_epochs', default=1000, type=int,
-                            help='TODO')
+                            help='maximum number of epochs to train (pytorch lightning)')
         parser.add_argument('--max_steps', default=None, type=int,
-                            help='TODO')
+                            help='maximum number of steps to train (pytorch lightning)')
         parser.add_argument('--terminate_on_nan', default=True, type=Hparams.str2bool,
-                            help='TODO')
+                            help='stop training if NaN in weight/gradient (pytorch lightning)')
         parser.add_argument('--track_grad_norm', default=-1, type=int,
-                            help='TODO')
+                            help='the type of norm (L1, L2, etc.) to save on gradients (pytorch lightning)')
         parser.add_argument('--limit_train_batches', default=1.0, type=float,
-                            help='TODO')
+                            help='proportion (float) or number (int) of batches to train on')
         parser.add_argument('--limit_val_batches', default=1.0, type=float,
-                            help='TODO')
+                            help='proportion (float) or number (int) of batches to validate on')
         parser.add_argument('--limit_test_batches', default=1.0, type=float,
-                            help='TODO')
+                            help='proportion (float) or number (int) of batches to test on')
         parser.add_argument('--deterministic', default=False, type=Hparams.str2bool,
-                            help='TODO')
-        parser.add_argument('--check_val_every_n_epoch', default=1, type=int,
-                            help='TODO')
+                            help='if True use deterministic training (fix random seed)')
+        parser.add_argument('--save_checkpoint_interval', default=10000, type=float,
+                            help='number of steps to save checkpoint after')
+        parser.add_argument('--val_check_interval', default=10000, type=Hparams.str2bool,
+                            help='number of steps to run validation after')
         return parser
 
     def __init__(self, os_interface: OsInterface, **hparams):
@@ -185,8 +187,9 @@ class Job(Hparams, abc.ABC):
                 ('sum_representation', 'sum'),
             ]),
             self._fill_category(changed_hparams, 'd', [
-                ('n_repr_dims', ''),
-                ('n_feedforward_dims', 'x'),
+                ('repr_dims', ''),
+                ('feedforward_dims', 'x'),
+                ('decode_dims', 'dec'),
             ]),
             self._fill_category(changed_hparams, 'drop', [
                 ('dropout', ''),
@@ -356,11 +359,10 @@ class Job(Hparams, abc.ABC):
         return replicates, filenames
 
     def _find_line(self, filename: os.PathLike, pattern: str):
-        with open(filename) as f:
-            for line in f:
-                matches = re.match(pattern, line)
-                if matches is not None:
-                    return matches
+        for line in self.os.read(filename):
+            matches = re.match(pattern, line)
+            if matches is not None:
+                return matches
         return None
 
     def new_replicate(self, canonical_path: os.PathLike) -> os.PathLike:

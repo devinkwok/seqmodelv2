@@ -2,6 +2,7 @@ import sys
 sys.path.append('.')
 import logging
 from datetime import datetime
+import pytorch_lightning as pl
 from argparse import ArgumentParser
 from seqmodel import Hparams
 from seqmodel.dataset import StridedSeqSampler
@@ -28,9 +29,8 @@ class Initializer(Hparams):
         parser.add_argument('--load_encoder_from_checkpoint', default=None, type=str,
                             help='path to encoder checkpoint, replaces encoder from ' +
                                 '--load_from_checkpoint or --resume_from_checkpoint')
-        # pytorch_lightning
         parser.add_argument('--precision', default=16, type=int,
-                            help='32 or 16 bit training')
+                            help='32 or 16 bit training (pytorch lightning)')
         return parser
 
     @staticmethod
@@ -94,7 +94,7 @@ class Initializer(Hparams):
         if args is None:
             hparams = vars(parser.parse_known_args())
         else:  # use supplied args from dict
-            hparams = parse_known_dict(args, parser)
+            hparams = Hparams.parse_known_dict(args, parser)
         # model objects
         pos_encoder = PositionEncoder(**hparams)
         encoder = TransformerEncoder(pos_encoder, **hparams)
@@ -103,14 +103,14 @@ class Initializer(Hparams):
         if hparams['init_task'] == 'ptmask':
             dataset = StridedSeqSampler(**hparams)
             decoder = LinearDecoder(
-                encoder.hparams.n_repr_dims,
+                encoder.hparams.repr_dims,
                 dataset.source_dims,
                 **hparams)
             task = PtMask(dataset, encoder, decoder, **hparams)
         elif hparams['init_task'] == 'ftdeepsea':
             dataset = MatFileDataset(**hparams)
             decoder = LinearDecoder(
-                encoder.hparams.n_repr_dims,
+                encoder.hparams.repr_dims,
                 dataset.target_dims,
                 **hparams)
             task = FtDeepSEA(dataset, encoder, decoder, **hparams)
@@ -126,18 +126,15 @@ class Initializer(Hparams):
 
         return task
 
-
-class PlTrainer(Hparams):
-
-    @staticmethod
-    def _default_hparams(parser):
-        return parser
-
     @staticmethod
     def train(task: Task):
-        """Runs training loop on task.
-        """
-        pass
+        pl.seed_everything(0)
+        trainer = pl.Trainer(**hparams)
+        if hparams['init_mode'] == 'train':
+            trainer.fit(task)
+        elif hparams['init_mode'] == 'test':
+            trainer.test(task)
+        args.callbacks
 
 
 class Runner():
@@ -147,7 +144,7 @@ class Runner():
     ERROR_MESSAGE = 'seqmodel/run.py terminated with ERROR.'
     LOG_FORMAT_RE = '\[(.+)\] \[{LOG_level}\] - '
 
-    def run(self):
+    def run(self, hparams: dict = None):
         log_format = logging.Formatter('[%(asctime)s] [%(levelname)s] - %(message)s')
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.INFO)
@@ -166,6 +163,8 @@ class Runner():
             # indicate running
             self.log.info(self.START_MESSAGE)
             # initialize objects
+            task = Initializer.initialize_objects(hparams)
+            self.trainer.train(task)
             # run train/test loop
 
             #TODO testing

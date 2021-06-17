@@ -111,6 +111,7 @@ class Hparams(abc.ABC):
         Args:
             hparams (dict): dict of hparams
         """
+        super().__init__()
         known_hparams = Hparams.parse_known_dict(hparams, self.default_hparams())
         self.hparams = AttributeDict(known_hparams)
 

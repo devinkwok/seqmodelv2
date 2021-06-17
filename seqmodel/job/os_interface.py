@@ -86,7 +86,9 @@ class LocalInterface(OsInterface):
         return 'none'
 
     def read(self, file_path: os.PathLike):
-        pass #TODO
+        with open(file_path, 'r') as file:
+            for line in file:
+                yield line
 
     def write(self, contents: str, file_path: os.PathLike):
         with open(file_path, 'w') as f:

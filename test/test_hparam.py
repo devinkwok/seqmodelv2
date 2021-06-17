@@ -201,3 +201,7 @@ class TestHparams(unittest.TestCase):
         self.assertHasAttr(obj, {'a': 0, 'b': False, 's': 'test', 'c': 1, 'd': 2})
         self.assertEqual(obj.param_A, 'param A value')
         self.assertEqual(obj.param_B, 'param B value')
+
+
+if __name__ == '__main__':
+    unittest.main()

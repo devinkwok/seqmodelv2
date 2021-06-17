@@ -14,6 +14,7 @@ TODO LIST
 - implement dataloaders compatbile with `torch.utils.data.distributed.DistributedSampler`
 - implement models
 - implement tasks
+- implement learning rate scheduler
 
 SETUP
 =====
@@ -75,8 +76,9 @@ Primary branch is `main`. Keep all versions tagged on `main`. Use separate branc
 
 Sequence Data
 -------------
-- make no assumptions about length or characters in sequence alphabet, instead pass `dataset.seq.Alphabet` objects.
+- make no assumptions about length or characters in sequence alphabet, instead pass `dataset.seq.Alphabet` objects
 - sequence data can be split between multiple files, but each name must be unique
+- all tensors have dimensions `N, L, C` where `N` is batch size, `L` is sequence length, and `C` is number of dimensions
 
 Hyperparameters
 ---------------

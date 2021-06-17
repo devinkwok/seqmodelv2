@@ -168,3 +168,7 @@ class TestJob(unittest.TestCase):
         next_replicate = self.job_obj.new_replicate('replicates')
         self.assertEqual(next_replicate, self.job_obj.os.join(
             self.TEST_DATA, 'replicates', '109'))
+
+
+if __name__ == '__main__':
+    unittest.main()
