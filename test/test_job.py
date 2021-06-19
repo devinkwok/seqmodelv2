@@ -128,31 +128,31 @@ class TestJob(unittest.TestCase):
         # look in test/data/replicates
         path = self.job_obj.os.join(self.TEST_DATA, 'replicates')
         # ignore replicate 0 (index from 1), replicates 2-3 do not exist
-        self.assertReplicateListEqual(*self.job_obj.replicates(path),
+        self.assert_replicate_list_equal(*self.job_obj.replicates(path),
             ['01', '4', '05', '06', '99', '107', '108'])
         # replicate 1 is empty
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'empty'}), ['01'])
         # replicate 4 exists but is not run
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'created'}), ['4'])
         # replicate 5 started
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'started'}), ['05'])
         # replicate 6 is running
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'running'}), ['06'])
         # replicate 99 completed successfully
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'complete'}), ['99'])
         # replicate 107 terminated with error
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'error'}), ['107'])
         # replicate 108 terminated with timeout
-        self.assertReplicateListEqual(
+        self.assert_replicate_list_equal(
             *self.job_obj.replicates(path, include={'timeout'}), ['108'])
 
-    def assertReplicateListEqual(self, replicates, paths, target):
+    def assert_replicate_list_equal(self, replicates, paths, target):
         self.assertEqual(len(replicates), len(target))
         self.assertEqual(len(paths), len(target))
         for dir in target:
@@ -168,6 +168,60 @@ class TestJob(unittest.TestCase):
         next_replicate = self.job_obj.new_replicate('replicates')
         self.assertEqual(next_replicate, self.job_obj.os.join(
             self.TEST_DATA, 'replicates', '109'))
+
+    def test_list_checkpoints_by_iter(self): 
+        ckpts = self.job_obj.list_checkpoints_by_iter(
+            self.job_obj.os.join(self.TEST_DATA, 'replicates'))
+        self.assert_ckpt_list_equal(ckpts, [
+            ('test/out/replicates/05/checkpoints/epoch=0-step=1000.ckpt', 0, 1000),
+            ('test/out/replicates/05/checkpoints/N-Step-Checkpoint_0_20000.ckpt', 0, 20000),
+            ('test/out/replicates/4/checkpoints/epoch=0-step=30000.ckpt', 0, 30000),
+            ('test/out/replicates/05/checkpoints/N-Step-Checkpoint_1_10000.ckpt', 1, 10000)
+            ])
+        ckpts = self.job_obj.list_checkpoints_by_iter(
+            self.job_obj.os.join(self.TEST_DATA, 'replicates', '05'))
+        self.assert_ckpt_list_equal(ckpts, [
+            ('test/out/replicates/05/checkpoints/epoch=0-step=1000.ckpt', 0, 1000),
+            ('test/out/replicates/05/checkpoints/N-Step-Checkpoint_0_20000.ckpt', 0, 20000),
+            ('test/out/replicates/05/checkpoints/N-Step-Checkpoint_1_10000.ckpt', 1, 10000)
+            ])
+        ckpts = self.job_obj.list_checkpoints_by_iter(
+            self.job_obj.os.join(self.TEST_DATA, 'no-replicates'))
+        self.assert_ckpt_list_equal(ckpts, [])
+
+    def assert_ckpt_list_equal(self, ckpts, target):
+        self.assertEqual(len(ckpts), len(target))
+        for ckpt, tgt in zip(ckpts, target):
+            self.assertEqual(len(ckpt), len(tgt))
+            for i, j in zip(ckpt, tgt):
+                self.assertEqual(i, j)
+
+    def test_replace_latest_ckpt_paths(self):
+        hparams = {
+            'a': self.job_obj.LATEST_CKPT_SHORTHAND,
+            'b': 'test/out/replicates/4/' + self.job_obj.LATEST_CKPT_SHORTHAND,
+            'c': 'test/out/no-replicates/' + self.job_obj.LATEST_CKPT_SHORTHAND,
+            'd': self.job_obj.LATEST_CKPT_SHORTHAND + '/test',
+            'e': 'test/out/no-replicates/',
+            'f': 10,
+        }
+        tgt_hparams = {
+            'b': 'test/out/replicates/4/checkpoints/epoch=0-step=30000.ckpt',
+            'd': self.job_obj.LATEST_CKPT_SHORTHAND + '/test',
+            'e': 'test/out/no-replicates/',
+            'f': 10,
+        }
+        # test each hparam individually
+        for k, v in hparams.items():
+            hp = {k: v}
+            new_hp = self.job_obj._replace_latest_ckpt_paths(hp)
+            if k in tgt_hparams:
+                self.assertDictEqual(new_hp, {k: tgt_hparams[k]})
+            else:
+                self.assertDictEqual(new_hp, {})
+        # test all hparams together
+        new_hp = self.job_obj._replace_latest_ckpt_paths(hparams)
+        self.assertDictEqual(new_hp, tgt_hparams)
 
 
 if __name__ == '__main__':

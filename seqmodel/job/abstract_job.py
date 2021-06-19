@@ -1,3 +1,4 @@
+import sys
 import os
 import re
 import abc
@@ -82,6 +83,13 @@ class Job(Hparams, abc.ABC):
                 read filesystem and call commands (e.g. locally or remotely).
         """
         self.os = os_interface
+        log_format = logging.Formatter('[%(asctime)s] [%(levelname)s] - %(message)s')
+        self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.INFO)
+        out = logging.StreamHandler(sys.stdout)
+        out.setLevel(logging.INFO)
+        out.setFormatter(log_format)
+        self.log.addHandler(out)
         super().__init__(**hparams)
 
     def _fill_category(
@@ -245,14 +253,16 @@ class Job(Hparams, abc.ABC):
             base_path (str): root directory to search from.
 
         Returns:
-            os.PathLike: path to most recent checkpoint file
+            list[tuple[os.PathLike, int, int]: list of tuples of
+                path to checkpoint file (including base_path),
+                epoch, and iteration, sorted by ascending epoch/iter.
         """
         checkpoints = []
         for path, ckpt_name in self.os.find(base_path, suffix='.ckpt'):
             integers = [int(i) for i in re.findall(r'\d+', ckpt_name)]
             checkpoint_path = self.os.join(path, ckpt_name)
             if len(integers) < 2:
-                logging.warn(f'Listing checkpoints at {base_path}, ' +
+                self.log.warn(f'Listing checkpoints at {base_path}, ' +
                     f'checkpoint {checkpoint_path} epoch/iter missing?')
             else:
                 epochs = integers[-2]
@@ -262,7 +272,8 @@ class Job(Hparams, abc.ABC):
 
     def _replace_latest_ckpt_paths(self, hparams: dict) -> dict:
         """Replaces any `[base_path]/JOB_latest_checkpoint`
-        with latest checkpoint in `sort_checkpoints([base_path])`
+        with latest checkpoint in `sort_checkpoints([base_path])`.
+        If latest checkpoint not available, remove the hparam.
 
         Args:
             base_path (str): root directory to search from.
@@ -270,15 +281,19 @@ class Job(Hparams, abc.ABC):
         Returns:
             os.PathLike: path to most recent checkpoint file
         """
-        new_hparams = dict(hparams)
+        new_hparams = {}
         for k, v in hparams.items():
             if type(v) is str and v.endswith(self.LATEST_CKPT_SHORTHAND):
                 base_path = v[:-len(self.LATEST_CKPT_SHORTHAND)]
                 checkpoints_by_iter = self.list_checkpoints_by_iter(base_path)
-                latest_ckpt_path, _, _ = checkpoints_by_iter[-1]
-                logging.info(f'Replaced hparam `{k}` with {latest_ckpt_path}, ' +
-                    f'original value was {v}')
-                new_hparams[k] = latest_ckpt_path
+                # replace path if checkpoints available, else omit hparam
+                if len(checkpoints_by_iter) > 0:
+                    latest_ckpt_path, _, _ = checkpoints_by_iter[-1]
+                    self.log.info(f'Replaced hparam `{k}` with {latest_ckpt_path}, ' +
+                        f'original value was {v}')
+                    new_hparams[k] = latest_ckpt_path
+            else:  # copy other hparams
+                new_hparams[k] = v
         return new_hparams
 
     def replicates(self, base_path: os.PathLike, include: set = None) -> typing.List[os.PathLike]:
@@ -432,7 +447,7 @@ class Job(Hparams, abc.ABC):
             ) + '\n'
         script_path = self.os.join(replicate_path, self.SCRIPT_NAME)
         if self.os.type_of(script_path) != 'none' and not replace_existing:
-            logging.warn(f'Script at {script_path} already exists, ' +
+            self.log.warn(f'Script at {script_path} already exists, ' +
                 'set `replace_existing = True` to overwrite.')
             return None
         self.os.write(script, script_path)
