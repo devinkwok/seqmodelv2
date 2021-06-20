@@ -14,6 +14,12 @@ class ShellJob(Job):
                             help='command to stop preinstalled python environment')
         return parser
 
+    def __init__(self, os_interface, **hparams):
+        """Change self.template to support multiple script templates.
+        """
+        super().__init__(os_interface, **hparams)
+        self.template = VENV_TEMPLATE
+
     def _create(self, hparams: dict) -> str:
         """Uses `str.format()` to fill in `template_shell.sh`.
 
@@ -52,7 +58,7 @@ class ShellJob(Job):
         self.os.command(f'sh {path_to_job_script} > {stdout_file} 2> {stderr_file} &')
         return None #TODO
 
-    template = \
+VENV_TEMPLATE = \
 """
 ## activate python environment
 {JOB_local_env_activate}

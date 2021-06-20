@@ -42,8 +42,14 @@ class SlurmJob(Job):
         m, s = divmod(m_s, 60)
         return f'{str(t.days).zfill(2)}-{str(h).zfill(2)}:{str(m).zfill(2)}:{str(s).zfill(2)}'
 
+    def __init__(self, os_interface, **hparams):
+        """Change self.template to support multiple script templates.
+        """
+        super().__init__(os_interface, **hparams)
+        self.template = CEDAR_TEMPLATE
+
     def _create(self, hparams: dict) -> str:
-        """Uses `str.format()` to fill in `template_slurm.sh`.
+        """Uses `str.format()` to fill in `templateslurm.sh`.
 
         Args:
             hparams (dict): hparams for run.py
@@ -83,7 +89,8 @@ class SlurmJob(Job):
         self.os.command(f'sbatch {self.SCRIPT_NAME}')
         return None #TODO
 
-    template = \
+
+CEDAR_TEMPLATE = \
 """
 #!/bin/bash
 #SBATCH --job-name={JOB_slurm_jobname}
@@ -96,7 +103,7 @@ class SlurmJob(Job):
 #SBATCH --error={JOB_slurm_stderr}
 
 ## load modules
-module load nixpkgs/16.09  gcc/7.3.0 cuda/10.1 cudnn/7.6.5 python/3.7.4
+module load nixpkgs/16.09 gcc/7.3.0 cuda/10.2 cudnn/7.6.5 python/3.7.4
 
 ## setup virtual environment
 virtualenv --no-download $SLURM_TMPDIR/env

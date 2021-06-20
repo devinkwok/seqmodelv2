@@ -78,7 +78,7 @@ Sequence Data
 -------------
 - make no assumptions about length or characters in sequence alphabet, instead pass `dataset.seq.Alphabet` objects
 - sequence data can be split between multiple files, but each name must be unique
-- all tensors have dimensions `N, L, C` where `N` is batch size, `L` is sequence length, and `C` is number of dimensions
+- all tensors have dimensions `N, S, E` where `N` is batch size, `S` is sequence length, and `E` is number of dimensions
 
 Hyperparameters
 ---------------

@@ -28,9 +28,6 @@ class PtMask(Task):
                             help='same as random_prop for validation, use random_prop if None.')
         return parser
 
-    def __init__(self):
-        pass #TODO
-
     def forward(self):
         pass #TODO
 

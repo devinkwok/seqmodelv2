@@ -97,7 +97,9 @@ class Initializer(Hparams):
             hparams = Hparams.parse_known_dict(args, parser)
         # model objects
         pos_encoder = PositionEncoder(**hparams)
-        encoder = TransformerEncoder(pos_encoder, **hparams)
+        encoder = TransformerEncoder(pos_encoder,
+                    ActivationFn=nn.GELU, DropoutFn=nn.Dropout,
+                    LayerNormFn=nn.LayerNorm, **hparams)
 
         # data and task objects
         if hparams['init_task'] == 'ptmask':
