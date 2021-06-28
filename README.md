@@ -9,16 +9,30 @@ TODO LIST
     - add flag in jobs to submit job with '--fast_dev_run=True' to test, then without '--fast_dev_run=True' to run
     - implement immediate job status reporting after submit
     if no errors.
-    - unit testing `job.py`
+    - unit testing create jobs
     - document `os_interface.py`
-- implement dataloaders compatbile with `torch.utils.data.distributed.DistributedSampler`
-- implement models
-- implement tasks
-- implement learning rate scheduler
+- batch size search in job.py
+- implement dataloaders compatible with `torch.utils.data.distributed.DistributedSampler`
+    - split Dataset object into a DataManager which tracks state related to train/val/test and returns appropriate dataloader by instantiating Dataset objects, Dataset should only handle sampling
+    - don't track hparams related to val/testing when training, only track for testing
+    - iter vs map interface
+    - task-specific hparams
+    - train/test/val hparams
+- implement positional encoder
+- implement ft tasks
+log:
+    seq coverage
+    loss
+    accuracy by class
+    median auc
+    ptmask
+        accuracy by mask type?
+
 
 SETUP
 =====
-Requires pytorch 1.6 for training with native 16-bit precision.
+Requires pytorch 1.9, cuda 10.2, for training with native 16-bit precision,
+and pl_bolts implementation of learning rate warmup scheduler.
 
 
 INFERENCE
@@ -72,13 +86,27 @@ Creating multiple jobs for hparam tuning:
 DEVELOPMENT
 ===========
 
-Primary branch is `main`. Keep all versions tagged on `main`. Use separate branches for code changes needed for specific experiments or debugging.
+
+Repository
+----------
+- Primary branch is `main`.
+- Keep all versions tagged on `main`.
+- Use separate branches for code changes needed for specific experiments or debugging.
+- One line per import to make diffs more readable.
 
 Sequence Data
 -------------
 - make no assumptions about length or characters in sequence alphabet, instead pass `dataset.seq.Alphabet` objects
-- sequence data can be split between multiple files, but each name must be unique
-- all tensors have dimensions `N, S, E` where `N` is batch size, `S` is sequence length, and `E` is number of dimensions
+- use one single file per data type (e.g. FASTA, BED), concatenate multiple files together if needed
+- all sequence names must be unique, specifically, the first part of the sequence descriptor split by whitespace should be unique (due to using pyfaidx to retrieve sequences)
+- all coordinates are assumed zero-indexed, end-exclusive (same behaviour as python)
+- sequence positions are identified using hash of full name/descriptor of sequence, and start coordinates
+- hash of the full FASTA name/descriptor is used to avoid sending string type to GPU
+- all metadata is in the form of a single tensor of type torch.long, of dimension `N, ...`  where `N` is batch size, and remaining is defined by dataset (e.g. for a sequence, `N, 2` where the 2 dimensions correspond to hash of name and start coordinate)
+- all data tensors have dimensions `N, S, E` where `N` is batch size, `S` is sequence length, and `E` is number of dimensions
+- a dataset should inherit from one of `[torch.utils.data.Dataset, torch.utils.data.IterableDataset]`, and one of `[seqmodel.dataset.UnsupervisedDataset, seqmodel.dataset.SupervisedDataset]`.
+- dataloaders are reloaded every epoch by default
+
 
 Hyperparameters
 ---------------
@@ -91,7 +119,7 @@ Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparams
 - `run.py` combines all parsers needed to define the model objects. `job.py` has parsers which are independent of `run.py`.
 - static methods in `hparam` require an `ArgumentParser` parameter, this allows parsers from multiple objects to be combined. When operating on one object only, call that object's `default_hparams()` to get a parser.
 - use `hparam.parse_dict()` to convert between `ArgumentParser` and `dict`
-- use type `hparam.str2bool` instead of `bool` for booleans, this solves a known argparse bug
+- use type `Hparams.str2bool` instead of `bool` for booleans, this solves a known argparse bug
 
 For unit testing:
 - subclasses of `Hparams` must be at the top level of each module

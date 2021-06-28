@@ -74,6 +74,8 @@ class Job(Hparams, abc.ABC):
                             help='number of steps to save checkpoint after')
         parser.add_argument('--val_check_interval', default=10000, type=Hparams.str2bool,
                             help='number of steps to run validation after')
+        parser.add_argument('--reload_dataloaders_every_epoch', default=True, type=Hparams.str2bool,
+                            help='this randomizes batch order (pytorch lightning)')
         return parser
 
     def __init__(self, os_interface: OsInterface, **hparams):
@@ -174,12 +176,19 @@ class Job(Hparams, abc.ABC):
         ])
         data_str = ''.join([
             self._fill_category(changed_hparams, 'seq', [
-                ('seq_path', ''),
-                ('seq_len', 'l'),
-                ('skip_len', 's'),
+                ('seq_file', ''),
                 ('train_intervals', 'int'),
                 ('valid_intervals', 'int_v'),
                 ('test_intervals', 'int_t'),
+            ]),
+            self._fill_category(changed_hparams, 'sample', [
+                ('seq_len', ''),
+                ('skip_len', 's'),
+                ('min_len', 'm'),
+                ('randomize_start_offsets', 'r'),
+                ('drop_incomplete', 'd'),
+                ('reverse_prop', 'flip_r'),
+                ('complement_prop', 'flip_c'),
             ]),
             self._fill_category(changed_hparams, 'mat', [
                 ('train_mat', ''),
@@ -206,13 +215,10 @@ class Job(Hparams, abc.ABC):
             ]),
         ])
         task_str = ''.join([
-            self._fill_category(changed_hparams, 'pt', [
-                ('mask_prop', 'm'),
+            self._fill_category(changed_hparams, 'm', [
+                ('mask_prop', ''),
                 ('keep_prop', 'k'),
                 ('random_prop', 'r'),
-                ('val_mask_prop', 'mv'),
-                ('val_keep_prop', 'kv'),
-                ('val_random_prop', 'rv'),
             ]),
             self._fill_category(changed_hparams, 'lr', [
                 ('lr', ''),
