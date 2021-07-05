@@ -4,23 +4,26 @@ import typing
 import numpy as np
 import torch
 from seqmodel import Hparams
-from seqmodel.dataset.seq import RandomFlip
-from seqmodel.dataset.seq import Uppercase
 from seqmodel.dataset.seq import Sequence
 from seqmodel.dataset.seq import Intervals
 from seqmodel.dataset.seq import FastaSequence
-from seqmodel.dataset.seq import SequenceToTensor
 from seqmodel.dataset.abstract_dataset import MapDataset
-from seqmodel.dataset.abstract_dataset import DataTransform
-from seqmodel.dataset.abstract_dataset import Compose
-from seqmodel.dataset.abstract_dataset import ArrayToTensor
-from seqmodel.dataset.abstract_dataset import DataManager
+from seqmodel.dataset.transforms import DataTransform
+from seqmodel.dataset.transforms import Compose
+from seqmodel.dataset.transforms import Uppercase
+from seqmodel.dataset.transforms import RandomFlip
+from seqmodel.dataset.transforms import ArrayToTensor
+from seqmodel.dataset.transforms import SequenceToTensor
 
 
 class SeqIntervalDataset(MapDataset):
 
     @staticmethod
     def _default_hparams(parser):
+        parser.add_argument('--seq_file', default='data/seq', type=str,
+                            help='path to sequence file')
+        parser.add_argument('--intervals', default=None, type=str,
+                            help='path to interval files for training split, use all sequences if None.')
         parser.add_argument('--seq_len', default=2000, type=str,
                             help='length of sampled sequence')
         parser.add_argument('--skip_len', default=None, type=str,
@@ -61,7 +64,14 @@ class SeqIntervalDataset(MapDataset):
                 sets override to 0 or random value depending on
                 `randomize_start_offsets`. Defaults to None.
         """
-        super().__init__(transform, **hparams)
+        transforms = Compose([
+            RandomFlip([0], self.hparams.reverse_prop, self.hparams.complement_prop),
+            Uppercase([0]),
+            SequenceToTensor([0], self.alphabet),
+            ArrayToTensor([1], dtype=torch.Long),
+            transform,
+        ])
+        super().__init__(transforms, **hparams)
 
         if self.hparams.skip_len is None:
             self.hparams.skip_len = self.hparams.seq_len
@@ -85,13 +95,6 @@ class SeqIntervalDataset(MapDataset):
         self._verify_intervals_in_seq()
         self.indexes = self._index_intervals()
 
-        self._transforms = Compose([
-            RandomFlip([0], self.hparams.reverse_prop, self.hparams.complement_prop),
-            Uppercase([0]),
-            SequenceToTensor([0], self.alphabet),
-            ArrayToTensor([1], dtype=torch.Long),
-        ])
-
     def _verify_intervals_in_seq(self):
         for name, start, end in self.intervals:
             if not self.seq_source.exists(name, start, end):
@@ -114,7 +117,7 @@ class SeqIntervalDataset(MapDataset):
             indexes.append(n_samples + indexes[-1])
         return indexes
 
-    def index_to_sample(self, idx: int) -> typing.Tuple[str, int, int]:
+    def get_sample(self, idx: int) -> typing.Tuple[str, int, int]:
         # find the nearest start index to idx
         i = np.searchsorted(self.indexes, idx, side='left')
         # use this to retrieve the interval containing idx
@@ -133,45 +136,20 @@ class SeqIntervalDataset(MapDataset):
             pass #TODO
             sample_end = end
         seq = self.interval.get(sample_start, sample_end)
-        return seq, self.seq_source.name_to_id(name), sample_start
+        # apply transforms using superclass
+        return super().get_sample(
+            seq, self.seq_source.name_to_id(name), sample_start)
 
     def __len__(self):
         return self.indexes[-1]
 
-    def __getitem__(self, index):
-        return super().__getitem__(self.index_to_sample(index))
-
-
-class SeqIntervalDataManager(DataManager):
-
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--seq_file', default='data/seq', type=str,
-                            help='path to sequence file')
-        parser.add_argument('--train_intervals', default=None, type=str,
-                            help='path to interval files for training split, use all sequences if None.')
-        parser.add_argument('--valid_intervals', default=None, type=str,
-                            help='path to interval files for validation split, use all sequences if None.')
-        parser.add_argument('--test_intervals', default=None, type=str,
-                            help='path to interval files for test split, use all sequences if None.')
-        return parser
-
-    def __init__(self, dataset_hparams: dict):
-        super().__init__(SeqIntervalDataset, dataset_hparams)
-
-    def dataloader(self, dataset_hparams: dict = {}, type: str = DataManager.TRAIN):
-        if type == DataManager.TRAIN:
-            interval_file = self.hparams.train_intervals
-        elif type == DataManager.VALIDATE:
-            interval_file = self.hparams.valid_intervals
-        elif type == DataManager.TEST:
-            interval_file = self.hparams.test_intervals
-
+    def dataloader(self, dataset_hparams: dict = {}):
+        interval_file = self.hparams.intervals
         source = FastaSequence(self.hparams.seq_file)
         if interval_file is None:
             intervals = Intervals.from_fasta_obj(source.fasta)
         else:
             intervals = Intervals.from_bed_file(interval_file)
 
-        return super().dataloader(source, intervals,
+        return super().dataloader(self.transforms, source, intervals,
                         dataset_hparams=dataset_hparams, type=type)

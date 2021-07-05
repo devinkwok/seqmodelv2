@@ -1,17 +1,13 @@
-from seqmodel.task.ft import Finetune
-from seqmodel.dataset.abstract_dataset import SupervisedDataset
+from seqmodel.task import Task
+from seqmodel.dataset import SupervisedDataset
 
 
 class MatFileDataset(SupervisedDataset):
 
     @staticmethod
     def _default_hparams(parser):
-        parser.add_argument('--train_mat', default='data/train.mat', type=str,
+        parser.add_argument('--mat_file', default='data/train.mat', type=str,
                             help='path to matlab file containing training data')
-        parser.add_argument('--valid_mat', default='data/valid.mat', type=str,
-                            help='path to matlab file containing validation data, if None use train_mat')
-        parser.add_argument('--test_mat', default='data/test.mat', type=str,
-                            help='path to matlab file containing test data, if None use valid_mat')
         return parser
 
     def dataloader(type: str = 'train'):
@@ -34,7 +30,7 @@ class MatFileDataset(SupervisedDataset):
         return self.n_class  #TODO
 
 
-class FtDeepSEA(Finetune):
+class FtDeepSEA(Task):
 
     @staticmethod
     def _default_hparams(parser):

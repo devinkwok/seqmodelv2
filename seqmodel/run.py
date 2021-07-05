@@ -2,10 +2,12 @@ import sys
 sys.path.append('.')
 import logging
 from datetime import datetime
+import torch.nn as nn
 import pytorch_lightning as pl
 from argparse import ArgumentParser
 from seqmodel import Hparams
-from seqmodel.dataset import StridedSeqSampler
+from seqmodel.dataset import DnaAlphabet
+from seqmodel.dataset import SeqIntervalDataset
 from seqmodel.model import LinearDecoder
 from seqmodel.model import PositionEncoder
 from seqmodel.model import TransformerEncoder
@@ -95,8 +97,12 @@ class Initializer(Hparams):
             hparams = vars(parser.parse_known_args())
         else:  # use supplied args from dict
             hparams = Hparams.parse_known_dict(args, parser)
+        # common objects/hparams
+        alphabet = DnaAlphabet()
+        repr_dims = hparams['repr_dims']
+
         # model objects
-        pos_encoder = PositionEncoder(**hparams)
+        pos_encoder = PositionEncoder(len(alphabet), repr_dims, **hparams)
         encoder = TransformerEncoder(pos_encoder,
                     ActivationFn=nn.GELU, DropoutFn=nn.Dropout,
                     LayerNormFn=nn.LayerNorm, **hparams)
@@ -105,14 +111,14 @@ class Initializer(Hparams):
         if hparams['init_task'] == 'ptmask':
             dataset = StridedSeqSampler(**hparams)
             decoder = LinearDecoder(
-                encoder.hparams.repr_dims,
-                dataset.source_dims,
+                repr_dims,
+                dataset.alphabet.n_char,
                 **hparams)
             task = PtMask(dataset, encoder, decoder, **hparams)
         elif hparams['init_task'] == 'ftdeepsea':
             dataset = MatFileDataset(**hparams)
             decoder = LinearDecoder(
-                encoder.hparams.repr_dims,
+                repr_dims,
                 dataset.target_dims,
                 **hparams)
             task = FtDeepSEA(dataset, encoder, decoder, **hparams)

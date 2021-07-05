@@ -4,7 +4,8 @@ import torch.nn as nn
 import numpy as np
 from numpy.testing import assert_array_almost_equal
 from seqmodel import model
-from seqmodel.model.transformer import MultiheadAttention, TransformerEncoder, TransformerEncoderLayer
+from seqmodel.model.transformer import TransformerEncoderLayer
+from seqmodel.model.transformer import MultiheadAttention
 
 
 class TestModel(unittest.TestCase):
@@ -122,7 +123,7 @@ class TestModel(unittest.TestCase):
             'dropout': 0.,
         }
         x = torch.randn(self.b, self.s, self.d)
-        encoder = TransformerEncoder(
+        encoder = model.TransformerEncoder(
                 nn.Identity(), nn.ReLU, nn.Dropout, nn.LayerNorm, **hparams)
         y, outs, weights = encoder.forward(x)
         self.assert_shape_equal_to(y, [self.b, self.s, self.d])
@@ -137,8 +138,8 @@ class TestModel(unittest.TestCase):
             self.assert_shape_equal_to(b, [self.b, self.h, self.s, self.s])
         y, outs, weights = encoder.forward(x,
                             save_intermediate_outputs={1})
-        self.assertEqual(len(outs), 3)
-        self.assertEqual(len(weights), 3)
+        self.assertEqual(len(outs), 1)
+        self.assertEqual(len(weights), 1)
 
 
 if __name__ == '__main__':

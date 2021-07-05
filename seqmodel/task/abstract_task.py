@@ -13,16 +13,8 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
     @staticmethod
     def _default_hparams(parser):
         # batch
-        parser.add_argument('--batch_size', default=16, type=int,
-                            help='number of samples in each training minibatch')
-        parser.add_argument('--valid_batch_size', default=None, type=int,
-                            help='number of samples in each validation minibatch, ' +
-                            'set to --batch_size if None')
-        parser.add_argument('--test_batch_size', default=None, type=int,
-                            help='number of samples in each test minibatch, ' +
-                            'set to --batch_size if None')
         parser.add_argument('--accumulate_grad_batches', default=1, type=int,
-                            help='average over this many batches before backprop')
+                            help='average over this many batches before backprop (pytorch_lightning)')
         # optimizer
         parser.add_argument('--lr', default=3e-4, type=float,
                             help='learning rate')
@@ -35,11 +27,12 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         parser.add_argument('--weight_decay', default=0.01, type=float,
                             help='weight decay for Adam optimizer')
         parser.add_argument('--gradient_clip_val', default=10., type=float,
-                            help='limit max abs gradient value, no clipping if 0')
+                            help='limit max abs gradient value, ' + \
+                                'no clipping if 0 (pytorch lightning)')
         return parser
 
-    @staticmethod
-    def add_model_specific_args(parent_parser: ArgumentParser):
+    @classmethod
+    def add_model_specific_args(cls, parent_parser: ArgumentParser):
         """Wrapper to call default_hparams for pytorch-lightning.
 
         Args:
@@ -48,16 +41,22 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         Returns:
             ArgumentParser: parser with default_hparams added
         """
-        return default_hparams(parent_parser)
+        return cls.default_hparams(parent_parser)
 
-    def __init__(self, dataset: Dataset, encoder: nn.Module, decoder: nn.Module, **hparams):
+    def __init__(self, train_dataset: Dataset,
+        valid_dataset: Dataset, test_dataset: Dataset,
+        encoder: nn.Module, decoder: nn.Module, **hparams
+    ):
         super(pl.LigtningModule, self).__init__(**hparams)
-        self.dataset = dataset
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset
+        self.test_dataset = test_dataset
         self.encoder = encoder
         self.decoder = decoder
+        self.loss_fn = self.configure_loss_fn()
 
     @abc.abstractmethod
-    def loss_fn(self, model_output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def configure_loss_fn(self) -> nn.Module:
         """Calculate loss (defined by subclass).
 
         Args:
@@ -67,33 +66,47 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         pass
 
     def train_dataloader(self):
-        return self.dataset.dataloader('train')
+        return self.train_dataset.dataloader()
 
     def val_dataloader(self):
-        return self.dataset.dataloader('valid')
+        return self.valid_dataset.dataloader()
 
     def test_dataloader(self):
-        return self.dataset.dataloader('test')
+        return self.test_dataset.dataloader()
 
-    def forward(self, x):
-        repr = self.encoder.forward(x)
+    def forward(self, x, **encoder_options):
+        repr, intermediates = self.encoder.forward(x, **encoder_options)
         out = self.decoder.forward(x)
-        return out, repr
+        return out, repr, intermediates
 
-    def training_step(self):
-        # forward
-        # loss
-        # logging
-        pass #TODO
+    def step(self, batch, batch_idx, compute_log_stats=True):
+        # separate batch
+        src, tgt, metadata = batch
+        out, repr, intermediates = self.forward(src)
+        # don't need to mask src/tgt here because ignore_index is set
+        loss = self.loss_fn(out, tgt)
+        # logging 
+        #TODO use compute_log_stats here
+        return loss
 
-    def validation_step(self):
-        pass #TODO
+    def training_step(self, batch, batch_idx):
+        return self.step(batch, batch_idx, compute_log_stats=True)
+
+    def validation_step(self, batch, batch_idx):
+        return self.step(batch, batch_idx, compute_log_stats=False)
 
     def validation_epoch_end(self):
-        pass #TODO
+        pass #TODO compute log stats
 
     def configure_optimizers(self):
-        pass #TODO
+        optimizer = torch.optim.Adam(
+            [self.encoder, self.decoder],
+            lr=self.hparams.lr,
+            betas=(self.hparams.adam_beta_1, self.hparams.adam_beta_2),
+            eps=self.hparams.adam_eps,
+            weight_decay=self.hparams.weight_decay,
+        )
+        return optimizer  #TODO lr scheduler
 
     def n_steps(self):
         """Return effective number of iterations, as true number of

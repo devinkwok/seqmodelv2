@@ -1,14 +1,13 @@
 import unittest
 from pyfaidx import Fasta
 from seqmodel import dataset
+from seqmodel.dataset import transforms
 
 
 class TestSequence(unittest.TestCase):
 
     def setUp(self):
-        self.multiple_fasta = 'test/data/seq/multiple.fasta'
-        self.single_fasta = 'test/data/seq/single.fasta'
-        self.single_bed = 'test/data/seq/single.bed'
+        self.fasta = 'test/data/seq/test.fasta'
 
     def test_Alphabet(self):
         tokens = ['a', 'b', 'mask']
@@ -32,7 +31,7 @@ class TestSequence(unittest.TestCase):
         self.assertEqual(token_str, 'aabnmn')
 
     def test_FastaSequence(self):
-        seq = dataset.FastaSequence(self.multiple_fasta)
+        seq = dataset.FastaSequence(self.fasta)
         names = ['CIZ78533', 'CCZ78532', 'CFZ78531', 'CMZ78530', 'CLZ78529']
         self.assertListEqual(list(seq.names), names)
         self.assertTrue(seq.exists(names[0], 10, 20))
@@ -58,7 +57,7 @@ class TestSequence(unittest.TestCase):
                         [0, 0, 3, 2, 2, 1, 1, 0, 1, 1])
 
     def test_Intervals(self):
-        fasta = Fasta(self.multiple_fasta)
+        fasta = Fasta(self.fasta)
         intervals = dataset.Intervals.from_fasta_obj(fasta)
         self.assertEqual(len(intervals), len(fasta.keys()))
         for interval, (k, v) in zip(intervals, fasta.items()):
@@ -67,7 +66,19 @@ class TestSequence(unittest.TestCase):
             self.assertEqual(start, 0)
             self.assertEqual(end, len(v))
 
-        intervals = dataset.Intervals.from_bed_file(self.single_bed)
+        with self.assertRaises(ValueError):
+            intervals = dataset.Intervals.from_bed_file('test/data/seq/invalid.bed')
+        intervals = dataset.Intervals.from_bed_file('test/data/seq/test.bed')
+        ref_intervals = [('CIZ78533', 70, 180), ('CCZ78532', 0, 10), ('CCZ78532', 700, 763)]
+        for interval, ref in zip(intervals, ref_intervals):
+            name, start, end = interval
+            self.assertEqual(name, ref[0])
+            self.assertEqual(start, ref[1])
+            self.assertEqual(end, ref[2])
+
+    def test_SeqIntervalDataset(self):
+        intervals = dataset.Intervals.from_bed_file('test/data/seq/out-of-bounds.bed')
+        #TODO
 
 
 if __name__ == '__main__':

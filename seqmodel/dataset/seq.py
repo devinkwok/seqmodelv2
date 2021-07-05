@@ -4,7 +4,6 @@ import typing
 import pyfaidx
 import torch
 from seqmodel import Hparams
-from seqmodel.dataset.abstract_dataset import DataTransform
 
 
 class Alphabet():
@@ -200,15 +199,10 @@ class Intervals():
     Extend to include other data.
     """
     def __init__(self,
-        names: typing.List[str] = [],
-        starts: typing.List[int] = [],
-        ends: typing.List[int] = []
     ):
-        assert len(names) == len(starts) and len(starts) == len(ends), \
-            'Number of names, starts, ends differ.'
-        self.names = names
-        self.starts = starts
-        self.ends = ends
+        self.names = []
+        self.starts = []
+        self.ends = []
 
     @classmethod
     def from_fasta_obj(self, fasta_obj: pyfaidx.Fasta):
@@ -222,7 +216,7 @@ class Intervals():
         intervals = Intervals()
         with open(path) as f:
             # skip header lines starting with 'browser', 'track', or '#'
-            line = '#'
+            line = f.readline()
             while line.startswith('browser') or \
                     line.startswith('track') or \
                     line.startswith('#'):
@@ -230,11 +224,13 @@ class Intervals():
             while line:  # to end of file
                 row = line.split()
                 # take first 3 columns of each line as name, start, end
-                intervals.append(row[0], row[1], row[2])
+                intervals.append(row[0], int(row[1]), int(row[2]))
+                line = f.readline()
         return intervals
 
     def append(self, name: str, start: int, end: int):
-        assert end > start, 'Interval length less than 1.'
+        if end <= start:
+            raise ValueError('Interval length less than 1.')
         self.names.append(name)
         self.starts.append(start)
         self.ends.append(end)
@@ -244,40 +240,6 @@ class Intervals():
 
     def __getitem__(self, i: int) -> typing.Tuple:
         return self.names[i], self.starts[i], self.ends[i]
-
-
-class Uppercase(DataTransform):
-
-    def _transform(self, sequence: str) -> torch.Tensor:
-        return str.upper(sequence)
-
-
-class SequenceToTensor(DataTransform):
-
-    def __init__(self, indexes: typing.List[int], alphabet: Alphabet):
-        super().__init__(indexes)
-        self.alphabet = alphabet
-
-    def _transform(self, sequence: str) -> torch.Tensor:
-        return torch.tensor(self.alphabet.to_idx(sequence), dtype=torch.long)
-
-
-class RandomFlip(DataTransform):
-
-    def __init__(self, indexes: typing.List[int],
-        reverse_prop: float = 0.5,
-        complement_prop: float = 0.5
-    ):
-        super().__init__(indexes)
-        self.reverse_prop = reverse_prop
-        self.complement_prop = complement_prop
-
-    def _transform(self, sequence: pyfaidx.Sequence) -> pyfaidx.Sequence:
-        if torch.rand(1).item() > self.reverse_prop:
-            sequence = sequence.reverse
-        if torch.rand(1).item() > self.complement_prop:
-            sequence = sequence.complement
-        return sequence
 
 
 class Variant():

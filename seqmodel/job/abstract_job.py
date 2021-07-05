@@ -177,11 +177,7 @@ class Job(Hparams, abc.ABC):
         data_str = ''.join([
             self._fill_category(changed_hparams, 'seq', [
                 ('seq_file', ''),
-                ('train_intervals', 'int'),
-                ('valid_intervals', 'int_v'),
-                ('test_intervals', 'int_t'),
-            ]),
-            self._fill_category(changed_hparams, 'sample', [
+                ('intervals', 'int'),
                 ('seq_len', ''),
                 ('skip_len', 's'),
                 ('min_len', 'm'),
@@ -191,9 +187,7 @@ class Job(Hparams, abc.ABC):
                 ('complement_prop', 'flip_c'),
             ]),
             self._fill_category(changed_hparams, 'mat', [
-                ('train_mat', ''),
-                ('valid_mat', 'v'),
-                ('test_mat', 't'),
+                ('mat_file', ''),
             ]),
         ])
         model_str = ''.join([
@@ -247,7 +241,20 @@ class Job(Hparams, abc.ABC):
             task_str = 'default_task'
         return [version_str, data_str, model_str, task_str]
 
-    def list_checkpoints_by_iter(self, base_path: str) -> typing.List[os.PathLike]:
+    def hparams_to_canonical_path(self, hparams: dict) -> os.PathLike:
+        """Converts dict of hyperparameters into path using `hparams_to_canonical_str`.
+
+        Args:
+            hparams (dict): valid non-default hparams
+
+        Returns:
+            os.PathLike: canonical path which combines self.hparams.job_out_dir
+                with self.os.join(self.hparams_to_canonical_str(hparams))
+        """
+        return self.os.join(self.hparams.job_out_dir,
+                *self.hparams_to_canonical_str(hparams))
+
+    def list_checkpoints_by_iter(self, base_path: os.PathLike) -> typing.List[os.PathLike]:
         """Finds filepath of most recent checkpoint by highest epoch/iteration
         numbers in filename. Searches all subdirectories of given base_path recursively,
         relative to current working directory.
@@ -386,33 +393,36 @@ class Job(Hparams, abc.ABC):
                 return matches
         return None
 
-    def new_replicate(self, canonical_path: os.PathLike) -> os.PathLike:
-        """Checks if `canonical_path` exists in `job_out_dir`.
+    def new_replicate(self, base_path: os.PathLike) -> os.PathLike:
+        """Checks if `base_path` exists.
         If non-existing, creates subdirectories as needed.
         Else, finds highest replicate number and
         creates/returns new subdirectory which increments the replicate number.
 
         Args:
-            canonical_path (os.PathLike): base path to search for replicates.
+            base_path (os.PathLike): base path to search for replicates.
 
         Returns:
-            os.PathLike: path to new replicate subdirectory including `job_out_dir`,
-                replicate number guaranteed to be largest under canonical_path
+            os.PathLike: path to new replicate subdirectory,
+                replicate number guaranteed to be largest in base_path
         """
-        # create canonical_path if not existing
-        full_path = self.os.join(self.hparams.job_out_dir, canonical_path)
-        self.os.mkdir(full_path)
-        replicates, _ = self.replicates(full_path)
+        # create base_path if not existing
+        self.os.mkdir(base_path)
+        replicates, _ = self.replicates(base_path)
         highest_replicate = 0
         if len(replicates) > 0:
             highest_replicate = sorted(replicates)[-1]
         # increment integer dirs, left pad with zeros
         next_replicate = str(highest_replicate + 1).zfill(self.N_REPLICATE_ZEROS)
-        new_replicate_path = self.os.join(full_path, next_replicate)
+        new_replicate_path = self.os.join(base_path, next_replicate)
         self.os.mkdir(new_replicate_path)
         return new_replicate_path
 
-    def create(self, hparams: dict, replicate_path: str = None, replace_existing = False):
+    def create(self,
+        hparams: dict,
+        replicate_path: os.PathLike = None,
+        replace_existing = False
+    ) -> os.PathLike:
         """Generates job script.
         Checks hparams using `get_parser` in run.py
         Defines `--default_root_dir` using canonical path.
@@ -424,19 +434,20 @@ class Job(Hparams, abc.ABC):
 
         Args:
             hparams (dict): hparams for run.py
-            script_path (str): if defined, creates job script in existing dir,
-                overwriting any existing script.
+            replicate_path (os.PathLike): if None, create script in new replicate dir,
+                else create script in existing replicate_path. Defaults to None.
+            replace_existing (str): if False, do not replace existing script file
+                if exists in replicate_path, else overwrite. Defaults to False.
 
         Returns:
-            os.PathLike: path to job script relative to `job_out_dir`
+            os.PathLike: path to job script, or None if script not created.
         """
         # check hparams are valid in run.py and find canonical_path
         parser = Initializer.get_parser(hparams)
         hparams = Hparams.parse_dict(hparams, parser)
         hparams = Hparams.changed_hparams(hparams, parser)
         if replicate_path is None:
-            canonical_str = self.hparams_to_canonical_str(hparams)
-            canonical_path = self.os.join(*canonical_str)
+            canonical_path = self.hparams_to_canonical_path(hparams)
             replicate_path = self.new_replicate(canonical_path)
         # update hparams with job args, canonical_path, and latest ckpts
         job_params = Hparams.changed_hparams(self.hparams, self.default_hparams())

@@ -161,11 +161,11 @@ class TestJob(unittest.TestCase):
 
     def test_new_replicate(self):
         # dir without replicates, next replicate is 1
-        next_replicate = self.job_obj.new_replicate('no-replicates')
+        next_replicate = self.job_obj.new_replicate('test/out/no-replicates')
         self.assertEqual(next_replicate, self.job_obj.os.join(
             self.TEST_DATA, 'no-replicates', '01'))
         # dir with replicates, next replicate is 109
-        next_replicate = self.job_obj.new_replicate('replicates')
+        next_replicate = self.job_obj.new_replicate('test/out/replicates')
         self.assertEqual(next_replicate, self.job_obj.os.join(
             self.TEST_DATA, 'replicates', '109'))
 
