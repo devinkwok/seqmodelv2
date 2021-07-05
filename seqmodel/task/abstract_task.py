@@ -1,4 +1,5 @@
 import abc
+from itertools import chain
 from argparse import ArgumentParser
 import torch
 import torch.nn as nn
@@ -19,7 +20,8 @@ class Task(pl.LightningModule, abc.ABC):
         decoder: nn.Module,
     ):
         super().__init__()
-        self.hparams = hparams
+        self.hp = hparams
+        self.save_hyperparameters('hparams')
         self.train_dataset = train_dataset
         self.valid_dataset = valid_dataset
         self.test_dataset = test_dataset
@@ -71,12 +73,13 @@ class Task(pl.LightningModule, abc.ABC):
         pass #TODO compute log stats
 
     def configure_optimizers(self):
+        print(self.decoder.parameters())
         optimizer = torch.optim.Adam(
-            [self.encoder, self.decoder],
-            lr=self.hparams.lr,
-            betas=(self.hparams.adam_beta_1, self.hparams.adam_beta_2),
-            eps=self.hparams.adam_eps,
-            weight_decay=self.hparams.weight_decay,
+            chain(self.encoder.parameters(), self.decoder.parameters()),
+            lr=self.hp.lr,
+            betas=(self.hp.adam_beta_1, self.hp.adam_beta_2),
+            eps=self.hp.adam_eps,
+            weight_decay=self.hp.weight_decay,
         )
         return optimizer  #TODO lr scheduler
 

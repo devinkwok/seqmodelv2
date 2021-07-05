@@ -12,7 +12,9 @@ from seqmodel.model.decoder import LinearDecoder
 
 class PositionEncoder(nn.Module):
 
-    def __init__(self, hparams: PositionEncoderHparams):
+    def __init__(self, hparams: PositionEncoderHparams, 
+        in_dims: int, out_dims: int,
+    ):
         super().__init__()
         self.hparams = hparams
 

@@ -1,7 +1,9 @@
 TODO LIST
 =========
-- encapsulate selecting `HparamCollection` as separate function outside `run.py` called by `Job`.
-    - document supported `pytorch_lightning` hparams.
+- hparams:
+    - train, valid, test datasets by implementing a clone method in Hparam to add prefixes to existing hparams.
+    - encapsulate selecting `HparamCollection` as separate function outside `run.py` called by `Job`.
+    - document supported `pytorch_lightning` hparams, make sure they are being passed to the relevant pytorch_lightning objects.
 - implement ssh jobs and Slurm jobs
     - add flag in jobs to submit job with '--fast_dev_run=True' to test, then without '--fast_dev_run=True' to run
     - implement immediate job status reporting after submit

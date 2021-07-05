@@ -4,3 +4,5 @@ out/**
 **/__pycache__
 .vscode
 *.fai
+lightning_logs
+data/**

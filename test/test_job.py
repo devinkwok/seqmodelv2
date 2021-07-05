@@ -3,7 +3,7 @@ import os
 import shutil
 from seqmodel import job
 from seqmodel import hparam
-from test import find_subclasses
+from seqmodel.util import find_subclasses
 
 
 def identical_change(param):

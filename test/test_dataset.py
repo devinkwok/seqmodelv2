@@ -1,13 +1,15 @@
 import unittest
 from pyfaidx import Fasta
 from seqmodel import dataset
-from seqmodel.dataset import transforms
+from seqmodel.hparam import SeqIntervalDatasetHparams
+from seqmodel.dataset.seqdataset import SeqIntervalDataset
 
 
 class TestSequence(unittest.TestCase):
 
     def setUp(self):
         self.fasta = 'test/data/seq/test.fasta'
+        self.alphabet = dataset.DnaAlphabet()
 
     def test_Alphabet(self):
         tokens = ['a', 'b', 'mask']
@@ -52,8 +54,7 @@ class TestSequence(unittest.TestCase):
             'AATCCGGAGGACCGGTGTACTCAGCTCACCGGGGGCATTGCTCCCGTGGTGACCC' + \
             'TGATTTGTTGTTGGGCCGCCTCGGGAGCGTCCATGGCGGGTTTGAACCTCTAGCC')
 
-        alphabet = dataset.DnaAlphabet()
-        self.assertEqual(alphabet.to_idx(subseq[:10]),
+        self.assertEqual(self.alphabet.to_idx(subseq[:10]),
                         [0, 0, 3, 2, 2, 1, 1, 0, 1, 1])
 
     def test_Intervals(self):
@@ -77,7 +78,17 @@ class TestSequence(unittest.TestCase):
             self.assertEqual(end, ref[2])
 
     def test_SeqIntervalDataset(self):
-        intervals = dataset.Intervals.from_bed_file('test/data/seq/out-of-bounds.bed')
+        hparams = {
+            'seq_file': 'test/data/seq/test.fasta',
+            'seq_len': 250,
+        }
+        dataset = SeqIntervalDataset(SeqIntervalDatasetHparams(**hparams),
+                                    self.alphabet)
+        self.assertEqual(len(dataset), 15)
+        for i in range(len(dataset)):
+            sample = dataset[i]
+            self.assertEqual(len(sample), hparams['seq_len'])
+        # intervals = dataset.Intervals.from_bed_file('test/data/seq/out-of-bounds.bed')
         #TODO
 
 

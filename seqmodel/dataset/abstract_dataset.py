@@ -37,9 +37,7 @@ class Dataset(abc.ABC):
         """
         return self.transform(*args)
 
-    def dataloader(self, *changed_params,
-        changed_hparams: dict = {},
-    ):
+    def dataloader(self) -> DataLoader:
         """Returns dataloader for train/valid/test split.
         Creates new copy of self, incorporat.
 
@@ -52,16 +50,12 @@ class Dataset(abc.ABC):
         Returns:
             torch.utils.DataLoader: data loader object
         """
-        dataset_hparams = {k: changed_hparams[k] if k in changed_hparams else v \
-                        for k, v in self.hparams.items()}
-        dataset = self.__class__(*changed_params, **dataset_hparams)
-
-        sampler = DistributedSampler(dataset)
+        # sampler = DistributedSampler(self)  #TODO gpu > 1
         # pytorch_lightning adds shuffle=True/False
         dataloader = DataLoader(
-            dataset,
+            self,
             batch_size=self.hparams.batch_size,
-            sampler=sampler,
+            # sampler=sampler,  #TODO gpu > 1
             num_workers=1,  # hardcode number of workers for now
             pin_memory=True,
             drop_last=True)

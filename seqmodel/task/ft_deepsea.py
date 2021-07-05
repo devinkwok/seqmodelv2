@@ -28,7 +28,7 @@ class MatFileDataset(SupervisedDataset):
         return self.n_class  #TODO
 
 
-class FtDeepSEA(Task):
+class FtDeepSea(Task):
 
     def __init__(self):
         pass #TODO

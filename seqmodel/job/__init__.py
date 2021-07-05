@@ -1,12 +1,12 @@
 # type: ignore
 
-from seqmodel.job.abstract_job import Job
+from abstract_job import Job
 
-from seqmodel.job.shell_job import ShellJob
-from seqmodel.job.slurm_job import SlurmJob
+from shell_job import ShellJob
+from slurm_job import SlurmJob
 
-from seqmodel.job.os_interface import SshInterface
-from seqmodel.job.os_interface import LocalInterface
+from os_interface import SshInterface
+from os_interface import LocalInterface
 
-from seqmodel.job.search import grid_search
-from seqmodel.job.search import multi_job_submit
+from search import grid_search
+from search import multi_job_submit

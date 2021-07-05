@@ -189,8 +189,8 @@ class FastaSequence(Sequence):
 
     def exists(self, name, coord_start: int, coord_end: int) -> str:
         return name in self.fasta and \
-            coord_start > 0 and \
-            coord_end < len(self.fasta[name])
+            coord_start >= 0 and \
+            coord_end <= len(self.fasta[name])
 
 
 class Intervals():

@@ -3,7 +3,7 @@ import shlex
 import warnings
 import argparse
 from seqmodel.hparam import HparamCollection, Hparams
-from test import find_subclasses
+from seqmodel.util import find_subclasses
 
 
 class TestHparams(unittest.TestCase):
@@ -17,7 +17,6 @@ class TestHparams(unittest.TestCase):
         all_hparams, all_shorthands = set(), set()
         # recursively check source root dir, excluding base class Hparams
         members = find_subclasses(Hparams, ['seqmodel/'], [Hparams, HparamCollection])
-        print([a for a in members])
         for member in members:
             hparams = member._default_hparams()
             if len(hparams) == 0:
