@@ -6,6 +6,7 @@ import typing
 import logging
 from datetime import datetime
 from argparse import ArgumentParser
+import torch
 from seqmodel import Hparams
 from seqmodel import find_subclasses
 from seqmodel import VERSION
@@ -469,6 +470,20 @@ class Job(Hparams, abc.ABC):
             return None
         self.os.write(script, script_path)
         return script_path
+
+    def resume_latest(self, base_path: os.PathLike) -> os.PathLike:
+        """Continues training from latest checkpoint available.
+
+        Args:
+            base_path (os.PathLike): path containing checkpoints.
+
+        Returns:
+            os.PathLike: path to job script, or None if script not created.
+        """
+        latest_ckpt_path = self.list_checkpoints_by_iter(base_path)[-1]
+        hparams = torch.load(latest_ckpt_path)['hparams']
+        hparams['resume_from_checkpoint'] = latest_ckpt_path
+        return self.create(hparams)
 
     @abc.abstractmethod
     def _create(self, hparams: dict) -> str:
