@@ -1,31 +1,22 @@
 import torch
 import torch.nn as nn
-from seqmodel import Hparams
+from seqmodel.hparam import LinearDecoderHparams
 
 
-class LinearDecoder(Hparams, nn.Module):
+class LinearDecoder(nn.Module):
     """Combines multiple linear layers.
     """
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--decode_dims', default=None, type=int,
-                            help='number of dimensions in intermediate layers, ' + \
-                                'if None set to 2*in_dims')
-        parser.add_argument('--n_decode_layers', default=2, type=int,
-                            help='number of linear layers')
-        parser.add_argument('--decode_dropout', default=0., type=float,
-                            help='dropout between linear layers')
-        return parser
 
     def __init__(self,
+        hparams: LinearDecoderHparams,
         in_dims: int,
         out_dims: int,
         ActivationFn: nn.Module = nn.ReLU,
         DropoutFn: nn.Module = nn.Dropout,
-        **hparams,
     ):
         """
         Args:
+            hparams (LinearDecoderHparams): hyperparameters (tracked, see hparam.py).
             in_dims (int): input dimensions
             out_dims (int): output dimensions
             ActivationFn (nn.Module): type of activation function
@@ -35,7 +26,8 @@ class LinearDecoder(Hparams, nn.Module):
             DropoutFn (nn.Module): type of dropout to apply between
                 feedforward (Linear) layers.
         """
-        super().__init__(**hparams)
+        super().__init__()
+        self.hparams = hparams
         # define layer dimensions
         layers = []
         decode_dims = self.hparams.decode_dims

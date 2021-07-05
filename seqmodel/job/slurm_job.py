@@ -1,31 +1,38 @@
 import os
 from datetime import timedelta
-from seqmodel import Hparams
 from seqmodel.job.abstract_job import Job
+from seqmodel.job.abstract_job import JobHparams
 
+
+class SlurmJobHparams(JobHparams):
+    def _default_hparams():
+        return {
+            'remote_ssh_login': (None, 'ssh', str,
+                'ssh credentials in the form [username@remote]'),
+            'pull_src_dir': ('~/proj/src', 'srcdir', str,
+                'location of source repository on remote'),
+            'pull_data_dir': ('~/data', 'datadir', str,
+                'location of predownloaded data on remote'),
+            'slurm_account': (None, 'sacc', str,
+                'name of billing account'),
+            'slurm_time': (1., 'stime', float,
+                'max runtime in hours (can be fractional)'),
+            'slurm_cpus': (1, 'scpu', int,
+                'number of cpus per node'),
+            'slurm_mem': (8000, 'smem', int,
+                'memory per node (mb)'),
+            'slurm_gpu_type': ('p100', 'sgpu', str,
+                'type of gpu to request (number is filled from hparam)'),
+        }
 
 class SlurmJob(Job):
-    """Modifies `Job` interface to use Slurm job manager.
-    """
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--remote_ssh_login', default=None, type=str,
-                            help='ssh credentials in the form [username@remote]')
-        parser.add_argument('--pull_src_dir', default='~/proj/src', type=str,
-                            help='location of source repository on remote')
-        parser.add_argument('--pull_data_dir', default='~/data', type=str,
-                            help='location of predownloaded data on remote')
-        parser.add_argument('--slurm_account', default=None, type=str,
-                            help='name of billing account')
-        parser.add_argument('--slurm_time', default=1., type=float,
-                            help='max runtime in hours (can be fractional)')
-        parser.add_argument('--slurm_cpus', default=1, type=int,
-                            help='number of cpus per node')
-        parser.add_argument('--slurm_mem', default=8000, type=int,
-                            help='memory per node (mb)')
-        parser.add_argument('--slurm_gpu_type', default='p100', type=str,
-                            help='type of gpu to request (number is filled from hparam)')
-        return parser
+
+    def __init__(self, os_interface, **hparams):
+        """Modifies `Job` interface to use Slurm job manager.
+        Note: change self.template to support multiple script templates.
+        """
+        super().__init__(os_interface, SlurmJobHparams(**hparams))
+        self.template = CEDAR_TEMPLATE
 
     @staticmethod
     def format_slurm_time(hours: float) -> str:
@@ -41,12 +48,6 @@ class SlurmJob(Job):
         h, m_s = divmod(t.seconds, 3600)
         m, s = divmod(m_s, 60)
         return f'{str(t.days).zfill(2)}-{str(h).zfill(2)}:{str(m).zfill(2)}:{str(s).zfill(2)}'
-
-    def __init__(self, os_interface, **hparams):
-        """Change self.template to support multiple script templates.
-        """
-        super().__init__(os_interface, **hparams)
-        self.template = CEDAR_TEMPLATE
 
     def _create(self, hparams: dict) -> str:
         """Uses `str.format()` to fill in `templateslurm.sh`.

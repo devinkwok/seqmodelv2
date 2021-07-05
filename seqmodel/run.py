@@ -5,7 +5,7 @@ from datetime import datetime
 import torch.nn as nn
 import pytorch_lightning as pl
 from argparse import ArgumentParser
-from seqmodel import Hparams
+from seqmodel.hparam import InitializerHparams
 from seqmodel.dataset import DnaAlphabet
 from seqmodel.dataset import SeqIntervalDataset
 from seqmodel.model import LinearDecoder
@@ -17,23 +17,11 @@ from seqmodel.task import MatFileDataset
 from seqmodel.task import FtDeepSEA
 
 
-class Initializer(Hparams):
+class Initializer():
     """Wrapper for hparams needed to initialize dataset/model/task.
     """
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--init_version', default=None, type=str,
-                            help='code version number, increment if hparam functionality changes')
-        parser.add_argument('--init_task', default=None, type=str,
-                            help='[ptmask, ftdeepsea] objects to load')
-        parser.add_argument('--init_mode', default='train', type=str,
-                            help='[train, test] whether to run training or inference')
-        parser.add_argument('--load_encoder_from_checkpoint', default=None, type=str,
-                            help='path to encoder checkpoint, replaces encoder from ' +
-                                '--load_from_checkpoint or --resume_from_checkpoint')
-        parser.add_argument('--precision', default=16, type=int,
-                            help='32 or 16 bit training (pytorch lightning)')
-        return parser
+    def __init__(self, hparams: InitializerHparams):
+        self.hparams = hparams
 
     @staticmethod
     def get_parser(args: dict = None):
@@ -64,7 +52,7 @@ class Initializer(Hparams):
 
         # data and task objects
         if init_args['init_task'] == 'ptmask':
-            parser = StridedSeqSampler.default_hparams(parser)
+            parser = SeqIntervalDataset.default_hparams(parser)
             parser = PtMask.default_hparams(parser)
         elif init_args['init_task'] == 'ftdeepsea':
             parser = MatFileDataset.default_hparams(parser)
@@ -109,7 +97,7 @@ class Initializer(Hparams):
 
         # data and task objects
         if hparams['init_task'] == 'ptmask':
-            dataset = StridedSeqSampler(**hparams)
+            dataset = SeqIntervalDataset(**hparams)
             decoder = LinearDecoder(
                 repr_dims,
                 dataset.alphabet.n_char,

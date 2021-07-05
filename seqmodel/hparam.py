@@ -1,119 +1,36 @@
-import os
 import abc
 import shlex
 import typing
-import inspect
-import importlib
-from argparse import ArgumentParser, ArgumentTypeError
+from argparse import ArgumentParser
+from argparse import ArgumentTypeError
 
 
-def path_to_module_name(filepath: os.PathLike) -> str:
-    """Converts path to .py file into a python module name for importing.
-    Examples: `path_to_module_name('seqmodel/task/', '__init__.py`)` returns `seqmodel.task`,
-    and `path_to_module_name('seqmodel/task/', 'ft.py`)` returns `seqmodel.task.ft`.
-
-    Args:
-        path (os.PathLike): path of directory containing file
-        filename (os.PathLike): name of file including extension `.py`
-
-    Returns:
-        str: name of module for python import
+class Hparams(abc.ABC, typing.Dict):
     """
-    filepath = os.path.normpath(filepath)
-    path_names = filepath.split(os.path.sep)
-    name, ext = os.path.splitext(path_names.pop())
-    if not ext == '.py':
-        return None
-    if not name == '__init__':
-        path_names += [name]
-    return '.'.join(path_names)
-
-
-def find_subclasses(
-        super_class: type,
-        search_paths: typing.List[os.PathLike],
-        exclude: typing.List[type] = [],
-    ) -> type:
-
-    checked_modules = exclude
-
-    files = []
-    for path in search_paths:
-        if os.path.isdir(path):  # if dir, recursively add all files to list
-            for d, _, fs in os.walk(path):  # lists files `fs` in each dir `d`
-                files += [os.path.join(d, f) for f in fs]
-        elif os.path.isfile(path):  # if file, add to list
-            files += [path]
-
-    for filepath in files:
-        module_name = path_to_module_name(filepath)
-        if module_name is None:
-            continue  # only import .py files
-        module = importlib.import_module(module_name)
-
-        for _, member in inspect.getmembers(module):
-            if not inspect.isclass(member):
-                continue  # only look at classes...
-            if not issubclass(member, super_class):
-                continue  # ...that subclass Hparams
-            if member in checked_modules:
-                continue # ...and hasn't been checked
-
-            checked_modules.append(member)
-            yield member
-
-
-class Hparams(abc.ABC):
+    Abstract class for hyperparameter containing object.
+    Default registered hyperparameters are stored 
+    Hyperparameters can be instantiated from `dict` or `ArgumentParser`,
+    and accessed in a dict-style interface.
+    Only hparams in hparam.py are tracked by canonical string/path in job.py.
     """
-    Abstract class for objects which register hyperparameters.
-    Default registered hyperparameters are stored as an `ArgumentParser`.
-    Hyperparameters can be passed as `dict` and compared against defaults
-    by calling `parse_dict` and `changed_hparams`.
-    Hyperparameters are required for object instantiation and stored in `self.hparams`.
-    """
-
-    @abc.abstractstaticmethod
-    def _default_hparams(parser: ArgumentParser) -> ArgumentParser:
-        """Defines default hparam values by adding them to parser.
-        Do not call this to get defaults, instead call `default_hparams` which
-        includes defaults from superclass.
-
-        Args:
-            parser (ArgumentParser): parser object.
-
-        Returns:
-            ArgumentParser: parser with default values of registered hparams.
-        """
-        return None
-
-    @classmethod
-    def default_hparams(cls, parser: ArgumentParser = None) -> ArgumentParser:
-        """Adds _default_hparams from all superclasses of cls that subclass Hparams.
-
-        Args:
-            parser (ArgumentParser): parser object. If None, creates a new ArgumentParser.
-
-        Returns:
-            ArgumentParser: parser with default values of registered hparams.
-        """
-        if parser is None:
-            parser = ArgumentParser()
-        for super_cls in cls.mro():
-            if issubclass(super_cls, Hparams) and super_cls != Hparams:
-                parser = super_cls._default_hparams(parser)
-        return parser
 
     def __init__(self, **hparams):
         """Adds hparams to self.hparams (similar to pytorch-lightning).
         However, only adds keys defined in `default_hparams` and also parses `hparams`
-        as a dict. Keys not in `default_hparams` are ignored
+        as a dict. Keys not in `default_hparams` are ignored.
 
         Args:
-            hparams (dict): dict of hparams
+            hparams (dict): hyperparameters.
         """
         super().__init__()
-        known_hparams = Hparams.parse_known_dict(hparams, self.default_hparams())
-        self.hparams = AttributeDict(known_hparams)
+        known_hparams = self.parse_known(**hparams)
+        for k, v in known_hparams.items():
+            self[k] = v
+
+    # Number of significant digits to round floats for canonical hparam string.
+    # Floats (therefore hparams) are considered equal if they differ by less
+    # precision than FLOAT_SIG_DIGITS, making their canonical paths identical.
+    FLOAT_SIG_DIGITS = 3
 
     # type replacing bool for argparse, see below link for justification:
     # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
@@ -129,127 +46,173 @@ class Hparams(abc.ABC):
             raise ArgumentTypeError('Boolean value expected.')
 
     @staticmethod
-    def _to_args(hparams: dict) -> str:
-        """Converts hparams to command line arg string. Doesn't check for valid values.
-
-        Args:
-            hparams (dict): hparams
-
-        Returns:
-            str: commands
-        """
-        commands = [f'--{k}={shlex.quote(str(v))}' for k, v in hparams.items()]
-        return ' '.join(commands)
-
-    @staticmethod
-    def parse_dict(hparams: dict, default_hparams: ArgumentParser) -> dict:
-        """Parses `hparams` as if it were command line arguments.
-        Returns default values only if `hparams={}`.
-
-        Args:
-            hparams (dict): to compare against `default_hparams`.
-                If `hparams` is None or empty, returns default values only.
-            default_hparams (ArgumentParser): containing default hparams.
+    @abc.abstractmethod
+    def _default_hparams() -> typing.Dict[str, typing.Tuple[typing.Any, str, type, str]]:
+        """Defines default hparams as a dict of tuples including default value,
+        type, and help message. Do not call this, use `default_hparams`.
+        The shorthand is included in ArgumentParser, and also used to
+        generate string representation of hparams.
 
         Returns:
-            dict: contains `hparams` combined with `default_hparams`
+            dict: of the form
+            {hparam_names: (default_value, shorthand, type, help_string)}
         """
-        commands = Hparams._to_args(hparams)
-        args = default_hparams.parse_args(shlex.split(commands))
+        return None
+
+    @classmethod
+    def default_hparams(cls) -> typing.Dict[str, typing.Any]:
+        """Dict of default_values from all superclasses of cls
+        that subclass Hparams. Calls _default_hparams().
+
+        Returns:
+            dict: default values including from superclasses, of the form
+            {hparam_names: (default_value, shorthand, type, help_string)}
+        """
+        hparams = {}
+        for super_cls in cls.mro():
+            if issubclass(super_cls, Hparams) and super_cls != Hparams:
+                for k, v in super_cls._default_hparams().items():
+                    if k in hparams:
+                        raise ValueError(f'Subclass {cls} ' + \
+                            f'overriding default value of hparam {k}')
+                    else:
+                        hparams[k] = v
+        return hparams
+
+    @classmethod
+    def to_parser(cls, parser: ArgumentParser = None) -> ArgumentParser:
+        """Creates ArgumentParser for hparams.
+
+        Args:
+            parser (ArgumentParser, optional): Existing parser to add to,
+                if None creates new one. Defaults to None.
+
+        Returns:
+            ArgumentParser: parser containing hyperparameters.
+        """
+        if parser is None:
+            parser = ArgumentParser()
+        for name, (value, shorthand, t, help) in cls.default_hparams().items():
+            if t == bool:
+                t = Hparams.str2bool
+            parser.add_argument(f'-{shorthand}', f'--{name}',
+                default=value, type=t, help=help)
+        return parser
+
+    @classmethod
+    def _parse(cls, ignore_unknown: bool, **hparams) -> dict:
+        commands = cls._to_args(**hparams)
+        parser = cls.to_parser()
+        if ignore_unknown:
+            args, _ = parser.parse_known_args(shlex.split(commands))
+        else:
+            args = parser.parse_args(shlex.split(commands))
         return vars(args)
 
-    @staticmethod
-    def parse_known_dict(hparams: dict, default_hparams: ArgumentParser) -> dict:
+    @classmethod
+    def parse(cls, **hparams) -> dict:
+        """Parses `hparams` as if it were command line arguments.
+        Returns default values from cls if `hparams={}`.
+
+        Args:
+            hparams (dict): to compare against `cls.default_hparams()`.
+                If `hparams` is None or empty, returns default values only.
+
+        Returns:
+            dict: contains `hparams` combined with `cls.default_hparams()`
+        """
+        return cls._parse(False, **hparams)
+
+    @classmethod
+    def parse_known(cls, **hparams) -> dict:
         """Parses `hparams` but ignoring keys not in default_hparams.
 
         Args:
-            hparams (dict): to compare against `default_hparams`.
+            hparams (dict): to compare against `cls.default_hparams()`.
                 If `hparams` is None or empty, returns default values only.
-            default_hparams (ArgumentParser): containing default hparams.
 
         Returns:
-            dict: contains `hparams` combined with `default_hparams`
+            dict: contains `hparams` combined with `cls.default_hparams()`
         """
-        known_hparams = {}
-        for k in Hparams.default_to_dict(default_hparams).keys():
-            if k in hparams:
-                known_hparams[k] = hparams[k]
-        return Hparams.parse_dict(known_hparams, default_hparams)
+        return cls._parse(True, **hparams)
 
-    @staticmethod
-    def default_to_dict(default_hparams: ArgumentParser) -> dict:
-        """Calls `parse_dict` where `hparams` is not set.
-
-        Args:
-            default_hparams (ArgumentParser): containing default hparams.
+    def changed_hparams(self) -> dict:
+        """Returns values which differ from `default_hparams`.
 
         Returns:
-            dict: contains `hparams` combined with `default_hparams`
+            dict[str, Any]: non-default hparam values.
         """
-        return Hparams.parse_dict({}, default_hparams)
-
-    @staticmethod
-    def changed_hparams(hparams: dict, default_hparams: ArgumentParser) -> dict:
-        """Returns items in `hparams` which differ from defaults in `default_hparams`.
-        Ignores items which are not present in `hparams` but exist in `default_hparams`.
-
-        Args:
-            default_hparams (ArgumentParser): containing default hparams.
-            hparams (dict): to compare against default_hparams.
-
-        Returns:
-            dict[str, Any]: items in `hparams` with keys in `default_hparams`,
-                whose values are different.
-        """
-        defaults = Hparams.default_to_dict(default_hparams)
         changed = {}
-        for k, v in hparams.items():
-            if k not in defaults:
-                raise ValueError(f'Undefined hparam {k}: {v} not in {defaults}')
-            if defaults[k] != v:
+        defaults = self.default_hparams()
+        for k, v in self.items():
+            if defaults[k][0] != v:
                 changed[k] = v
         return changed
 
     @staticmethod
-    def to_args(hparams: dict, default_hparams: ArgumentParser = None, include_default: bool = False) -> str:
+    def _to_args(**hparams) -> str:
+        commands = []
+        for k, v in hparams.items():
+            if v is not None:
+                commands.append(f'--{k}={shlex.quote(str(v))}')
+        return ' '.join(commands)
+
+    def to_args(self, include_default: bool = False) -> str:
         """Converts hparams to command line flags.
 
         Args:
-            default_hparams (ArgumentParser): containing default hparams.
-            hparams (dict): to compare against default_hparams.
-            include_default (bool): if False, apply changed_hparams() first to exclude defaults
+            include_default (bool): if False, apply changed_hparams to
+                exclude hparams with default values. Default is False.
 
         Returns:
             str: command line flags.
         """
-        if default_hparams is not None:
-            if include_default:
-                hparams = Hparams.parse_dict(hparams, default_hparams)
-            else:
-                hparams = Hparams.changed_hparams(hparams, default_hparams)
-        return Hparams._to_args(hparams)
+        if include_default:
+            return self._to_args(**self)
+        else:
+            return self._to_args(**self.changed_hparams())
 
+    @classmethod
+    def sortable_name(cls):
+        return cls.__name__
 
-class AttributeDict(typing.Dict):
-    """Identical to pytorch_lightning.utilities.parsing.AttributeDict,
-    but copied in order to avoid importing pytorch_lightning when defining jobs.
+    @staticmethod
+    def _hparam_to_str(key, value):
+        if value is None:
+            value = 'None'
+        elif type(value) == bool:
+            value = 'T' if value else 'F'
+        elif type(value) == float:
+            # use string format code to return scientific notation
+            # with FLOAT_SIG_DIGITS - 1 decimals
+            value = ("%." + str(Hparams.FLOAT_SIG_DIGITS - 1) + "E") % (value)
+        elif type(value) == str:  # no spaces
+            value = value.replace(' ', '_')
+        return key + '=' + str(value)
 
-    https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pytorch_lightning/utilities/parsing.py
+    def __str__(self):
+        """Outputs canonical string format of hparams. Sorts hparams by name.
+        Changes display of some types as follows:
+        - None becomes 'None'
+        - bool becomes 'T' or 'F'known_hparams
+        - float is displayed in scientific notation rounded to FLOAT_SIG_DIGITS - 1
 
-    Copyright The PyTorch Lightning team.
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-    """
+        Returns:
+            str: string in the format
+                '{shorthand0}={value0},{shorthand1}={value1}, ...',
+                if empty (all default values), return sortable_name().
+        """
+        defaults = self.default_hparams()
+        str_repr = []
+        changed_hparams = self.changed_hparams()
+        keys = sorted(changed_hparams.keys())
+        for k in keys:
+            shorthand = defaults[k][1]
+            value = changed_hparams[k]
+            str_repr.append(self._hparam_to_str(shorthand, value))
+        if len(str_repr) == 0:
+            return self.sortable_name()
+        return ','.join(str_repr)
 
     def __getattr__(self, key):
         try:
@@ -260,11 +223,231 @@ class AttributeDict(typing.Dict):
     def __setattr__(self, key, val):
         self[key] = val
 
-    def __repr__(self):
-        if not len(self):
-            return ""
-        max_key_length = max([len(str(k)) for k in self])
-        tmp_name = '{:' + str(max_key_length + 3) + 's} {}'
-        rows = [tmp_name.format(f'"{n}":', self[n]) for n in sorted(self.keys())]
-        out = '\n'.join(rows)
-        return out
+
+class HparamCollection(Hparams):
+    """An ordered list of Hparams classes and objects.
+    """
+    def __init__(self, **hparams):
+        super(Hparams, self).__init__()
+        hparams_dict = self.parse(**hparams)
+        for module in self.hparam_list():
+            self[module] = module(**hparams_dict)
+
+    @staticmethod
+    @abc.abstractmethod
+    def _hparam_list() -> typing.List[type]:
+        """Define which classes to include in this collection.
+        Call hparam_list to get canonical (sorted) version.
+
+        Returns:
+            typing.List[type]: list of classes inheriting from Hparams.
+        """
+        return None
+
+    @classmethod
+    def hparam_list(cls) -> typing.List[type]:
+        """Canonical (sorted) list of hparam classes.
+        Combines `_hparam_list()` from superclasses.
+
+        Returns:
+            typing.List[type]: sorted list of classes inheriting from Hparams.
+        """
+        hparams = []
+        for super_cls in cls.mro():
+            if issubclass(super_cls, HparamCollection) \
+                    and super_cls != HparamCollection:
+                hparams += super_cls._hparam_list()
+        return sorted(hparams, key=lambda h: h.sortable_name())
+
+    @classmethod
+    def default_hparams(cls) -> typing.Dict[str, typing.Any]:
+        hparams = {}
+        for h in cls.hparam_list():
+            hparams = {**hparams, **h.default_hparams()}
+        return hparams
+
+    @classmethod
+    def to_parser(cls, parser: ArgumentParser = None) -> ArgumentParser:
+        for h in cls.hparam_list():
+            parser = h.to_parser(parser)
+        return parser
+
+    def changed_hparams(self) -> dict:
+        hparams = {}
+        for h in self.hparams_obj:
+            hparams = {**hparams, **h.changed_hparams()}
+        return hparams
+
+    def to_args(self, include_default: bool = False) -> str:
+        args = [h.to_args(include_default) for h in self.hparam_list()]
+        return ' '.join(args)
+
+    def __str__(self):
+        """Converts dict of hyperparameters into ordered list of strings.
+        Only non-default hyperparameters are recorded.
+        Hparams are arranged by sorted_name order, and separated by ' '.
+
+        Returns:
+            str: canonical string form of hparams in canonical order.
+        """
+        output = []
+        for _, hparam_obj in self.items():
+            output.append(str(hparam_obj))
+        return ' '.join(output)
+
+
+class DatasetHparams(Hparams):
+    def _default_hparams():
+        return {
+            'batch_size': (16, 'bs', int,
+                'number of samples in each training minibatch'),
+        }
+
+class SeqIntervalDatasetHparams(DatasetHparams):
+    def _default_hparams():
+        return {
+            'seq_file': ('data/seq', 'seq', str,
+                'path to sequence file'),
+            'intervals': (None, 'int', str,
+                'path to interval files for training split, use all sequences if None.'),
+            'seq_len': (2000, 'len', int,
+                'length of sampled sequence'),
+            'skip_len': (None, 'skip', str,
+                'how many characters to skip before next sample, ' + \
+                                'defaults to seq_len'),
+            'min_len': (None, 'mlen', str,
+                'smallest interval length to sample from, ' + \
+                                'defaults to seq_len'),
+            'randomize_start_offsets': (True, 'randstart', bool,
+                'move sampling start position by random number ' + \
+                                'less than seq_len'),
+            'drop_incomplete': (True, 'noinc', bool,
+                'remove first and/or last samples with length ' + \
+                                'less than seq_len, if False and start_offset > 0, ' + \
+                                'this will pad the start of the first sample.'),
+            'reverse_prop': (0.5, 'prev', float,
+                'proportion of samples to reverse.'),
+            'complement_prop': (0.5, 'pcompl', float,
+                'proportion of samples to complement.'),
+        }
+
+class LinearDecoderHparams(Hparams):
+    def _default_hparams():
+        return {
+            'decode_dims': (None, 'ddec', int,
+                'number of dimensions in intermediate layers, ' + \
+                                'if None set to 2*in_dims'),
+            'n_decode_layers': (2, 'ndec', int,
+                'number of linear layers'),
+            'decode_dropout': (0., 'ddrop', float,
+                'dropout between linear layers'),
+        }
+
+class PositionEncoderHparams(Hparams):
+    def _default_hparams():
+        return {
+            'posencoder_dropout': (0., 'posdrop', float,
+                'dropout after positional encoder'),
+        }
+
+class TransformerEncoderHparams(Hparams):
+    def _default_hparams():
+        return {
+            'repr_dims': (512, 'd', int,
+                'number of dimensions in representation layer'),
+            'feedforward_dims': (None, 'dff', int,
+                'number of dimensions in feedforward (fully connected) layer, ' +
+                                'if None set to 2*repr_dims'),
+            'n_heads': (4, 'nh', int,
+                'number of attention heads'),
+            'n_layers': (4, 'nl', int,
+                'number of attention layers'),
+            'dropout': (0., 'drop', float,
+                'proportion between [0., 1.] of dropout to apply between module layers.'),
+        }
+
+class TaskHparams(Hparams):
+    def _default_hparams():
+        return {
+            # batch
+            'accumulate_grad_batches': (1, 'bacc', int,
+                'average over this many batches before backprop (pytorch_lightning)'),
+            # optimizer
+            'lr': (3e-4, 'lr', float,
+                'learning rate'),
+            'adam_beta_1': (0.9, 'b1', float,
+                'beta 1 parameter for Adam optimizer'),
+            'adam_beta_2': (0.99, 'b2', float,
+                'beta 2 parameter for Adam optimizer'),
+            'adam_eps': (1e-6, 'eps', float,
+                'epsilon parameter for Adam optimizer'),
+            'weight_decay': (0.01, 'wd', float,
+                'weight decay for Adam optimizer'),
+            'gradient_clip_val': (10., 'clip', float,
+                'limit max abs gradient value, ' + \
+                                'no clipping if 0 (pytorch lightning)'),
+        }
+
+class PtMaskHparams(TaskHparams):
+    def _default_hparams():
+        return {
+            'keep_prop': (0.01, 'pk', float,
+                'proportion of sequence positions to apply identity loss.'),
+            'mask_prop': (0.13, 'pm', float,
+                'proportion of sequence positions to mask.'),
+            'random_prop': (0.01, 'pr', float,
+                'proportion of sequence positions to randomize.'),
+        }
+
+class MatFileDatasetHparams(DatasetHparams):
+    def _default_hparams():
+        return {
+            'mat_file': ('data/train.mat', 'mat', str,
+                'path to matlab file containing training data'),
+        }
+
+class FtDeepSEAHparams(TaskHparams):
+    def _default_hparams():
+        return {
+            #TODO
+        }
+
+class InitializerHparams(Hparams):
+    def _default_hparams():
+        return {
+            'init_version': (None, 'ver', str,
+                'code version number, increment if hparam functionality changes'),
+            'init_task': (None, 'tsk', str,
+                '[ptmask, ftdeepsea] objects to load'),
+            'init_mode': ('train', 'mode', str,
+                '[train, test] whether to run training or inference'),
+            'precision': (16, 'pre', int,
+                '32 or 16 bit training (pytorch lightning)'),
+            'load_encoder_from_checkpoint': (None, 'cpenc', str,
+                'path to encoder checkpoint, replaces encoder from ' + \
+                'load_from_checkpoint or resume_from_checkpoint'),
+        }
+
+
+class RunHparamCollection(HparamCollection):
+    def _hparam_list():
+        return [
+            InitializerHparams,
+            PositionEncoderHparams,
+            TransformerEncoderHparams,
+            LinearDecoderHparams,
+        ]
+
+class PtMaskHparamCollection(RunHparamCollection):
+    def _hparam_list():
+        return [
+            SeqIntervalDatasetHparams,
+            PtMaskHparams,
+        ]
+
+class FtDeepSEAHparamCollection(RunHparamCollection):
+    def _hparam_list():
+        return [
+            MatFileDatasetHparams,
+            FtDeepSEAHparams,
+        ]

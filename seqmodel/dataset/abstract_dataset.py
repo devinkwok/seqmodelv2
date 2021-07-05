@@ -3,25 +3,23 @@ import torch
 import typing
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-from seqmodel import Hparams
-from seqmodel.dataset.transforms import DataTransform
+from seqmodel.hparam import DatasetHparams
+from seqmodel.dataset.transforms import Compose
 
 
-class Dataset(Hparams, abc.ABC):
+class Dataset(abc.ABC):
 
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--batch_size', default=16, type=int,
-                            help='number of samples in each training minibatch')
-        return parser
-
-    def __init__(self, transform: DataTransform, **hparams):
+    def __init__(self, hparams: DatasetHparams, transform: Compose = None):
         """Unsupervised dataset with transforms.
 
         Args:
-            transform (DataTransform): transforms to apply after sampling.
+            hparams (DatasetHparams): hyperparameters (tracked, see hparam.py).
+            transform (DataTransform, optional):
+                transforms to apply after sampling.
         """
-        super().__init__(**hparams)
+        self.hparams = hparams
+        if transform is None:
+            transform = Compose()
         self.transform = transform
 
     @abc.abstractmethod
@@ -71,11 +69,6 @@ class Dataset(Hparams, abc.ABC):
 
 
 class MapDataset(Dataset, torch.utils.data.Dataset, abc.ABC):
-
-    @staticmethod
-    def _default_hparams(parser):
-        return parser
-
     """Uses index to retrieve samples, extends `torch.utils.data.Dataset`.
     """
     def __getitem__(self, index):
@@ -87,11 +80,6 @@ class MapDataset(Dataset, torch.utils.data.Dataset, abc.ABC):
 
 
 class IterableDataset(Dataset, torch.utils.data.IterableDataset, abc.ABC):
-
-    @staticmethod
-    def _default_hparams(parser):
-        return parser
-
     """Retrieves samples sequentially, extends `torch.utils.data.IterableDataset`.
     """
     def __iter__(self):
@@ -101,10 +89,6 @@ class IterableDataset(Dataset, torch.utils.data.IterableDataset, abc.ABC):
 class SupervisedDataset(Dataset, abc.ABC):
     """Supervised version of Dataset.
     """
-    @staticmethod
-    def _default_hparams(parser):
-        return parser
-
     @property
     @abc.abstractmethod
     def target_dims(self) -> int:

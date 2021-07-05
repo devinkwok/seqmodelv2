@@ -1,10 +1,9 @@
 import unittest
 import os
 import shutil
-import argparse
 from seqmodel import job
-from seqmodel import Hparams
-from seqmodel import find_subclasses
+from seqmodel import hparam
+from test import find_subclasses
 
 
 def identical_change(param):
@@ -12,7 +11,7 @@ def identical_change(param):
         return 123  # arbitrary int that doesn't appear in defaults
     if type(param) == float:
         return 123.  # arbitrary non-default float
-    if type(param) is bool:
+    if type(param) == bool:
         return not param
     return '123'
 
@@ -25,7 +24,7 @@ def variable_change(param):
         return (param + 1) * 0.1
     if type(param) == str:
         return param + ' CHANGE'
-    if type(param) is bool:
+    if type(param) == bool:
         return not param
 
 def apply_all(hparams: dict, change_function):
@@ -63,23 +62,23 @@ class TestJob(unittest.TestCase):
             shutil.rmtree(self.TEST_DATA)
         return super().tearDown()
 
-    def test_hparams_to_canonical_str(self):
-        """Check every registered hparam in `dataset`, `model`, `task`, and `run.py`
-        to see if a unique representation is returned by `hparams_to_canonical_str`.
+    def test_hparams_to_canonical_path(self):
+        for collection in find_subclasses(
+                        hparam.HparamCollection, ['seqmodel/hparam.py'],
+                        exclude=[hparam.HparamCollection]):
+            self.collection_gives_unique_paths(collection)
 
-        Raises:
-            ValueError: if duplicate paths are found
+    def collection_gives_unique_paths(self, hparam_collection: hparam.HparamCollection):
+        """Check every registered hparam in `hparam.py`
+        to see if a unique representation is returned by
+        `hparams_to_canonical_path`.
         """
-        paths = {}
-        parser = argparse.ArgumentParser()
-        for module in find_subclasses(Hparams, search_paths=[
-            'seqmodel/dataset/', 'seqmodel/model/', 'seqmodel/task/', 'seqmodel/run.py'],
-            exclude=[Hparams]):
-            parser = module._default_hparams(parser)
+        default_hparams = {}
 
+        for module in hparam_collection.hparam_list():
+            default_hparams = {**default_hparams, **module()}
         # create test cases
         # base dicts to generate cases from: defaults, with variable changes, with identical changes
-        default_hparams = Hparams.default_to_dict(parser)
         hparams_changed = apply_all(default_hparams, variable_change)
         hparams_identical = apply_all(default_hparams, identical_change)
         # cases: one non-default only
@@ -99,26 +98,33 @@ class TestJob(unittest.TestCase):
             }
         hparam_versions = {**version_dc, **version_cd, **version_di, **version_id, **version_other}
 
+        paths = {}
         # check each case for unique path
         for key, version in hparam_versions.items():
-            strings = self.job_obj.hparams_to_canonical_str(version)
-            [self.is_valid_path_component(s) for s in strings]
-            canonical_path = os.path.join(*strings)
-            if canonical_path in paths:
-                raise ValueError(f'Path identical for key `{key}`:\n{canonical_path}\n' +
-                                f'{paths[canonical_path]}\nand\n{version}')
+            hparams = hparam_collection(**version)
+            canonical_path = self.job_obj.hparams_to_canonical_path(hparams)
+            for s in canonical_path.split(self.job_obj.os.sep):
+                self.assert_valid_path_component(s)
+            self.assertFalse(canonical_path in paths, f'Path identical for key `' + \
+                f'`{key}`:\n{canonical_path}\nand\n{version}')
             paths[canonical_path] = version
 
-    def is_valid_path_component(self, component: str):
+    def assert_valid_path_component(self, component: str):
+        """
+        According to:
+        https://stackoverflow.com/questions/9532499/check-whether-a-path-is-valid-in-python-without-creating-a-file-at-the-paths-ta
+        `os.stat()` will raise an exception other than FileNotFoundError
+        for invalid path components. Since this is a unit test,
+        assume there is no adversarial actor hence running in working dir
+        is not an issue.
+
+        Args:
+            component (str): dir or file name to check for validity
+        """
         # # check that component is non-empty
-        # self.assertNotEqual(component, '')
+        self.assertNotEqual(component, '')
         # check that component cannot be split into several dirs
         self.assertTrue(os.sep not in component)
-        # https://stackoverflow.com/questions/9532499/check-whether-a-path-is-valid-in-python-without-creating-a-file-at-the-paths-ta
-        # according to the link above, `os.stat()` will raise an exception
-        # other than FileNotFoundError for invalid path components
-        # since this is a unit test, assume there is no adversarial actor
-        # hence running in working dir is not an issue
         try:
             os.stat(component)
         except FileNotFoundError:

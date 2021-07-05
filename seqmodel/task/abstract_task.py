@@ -3,51 +3,23 @@ from argparse import ArgumentParser
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from seqmodel import Hparams
+from seqmodel.hparam import TaskHparams
 from seqmodel.dataset import Dataset
 
 
-class Task(pl.LightningModule, Hparams, abc.ABC):
-    """A trainable task following pytorch-lightning structure
+class Task(pl.LightningModule, abc.ABC):
+    """A trainable task following pytorch-lightning structure.
     """
-    @staticmethod
-    def _default_hparams(parser):
-        # batch
-        parser.add_argument('--accumulate_grad_batches', default=1, type=int,
-                            help='average over this many batches before backprop (pytorch_lightning)')
-        # optimizer
-        parser.add_argument('--lr', default=3e-4, type=float,
-                            help='learning rate')
-        parser.add_argument('--adam_beta_1', default=0.9, type=float,
-                            help='beta 1 parameter for Adam optimizer')
-        parser.add_argument('--adam_beta_2', default=0.99, type=float,
-                            help='beta 2 parameter for Adam optimizer')
-        parser.add_argument('--adam_eps', default=1e-6, type=float,
-                            help='epsilon parameter for Adam optimizer')
-        parser.add_argument('--weight_decay', default=0.01, type=float,
-                            help='weight decay for Adam optimizer')
-        parser.add_argument('--gradient_clip_val', default=10., type=float,
-                            help='limit max abs gradient value, ' + \
-                                'no clipping if 0 (pytorch lightning)')
-        return parser
-
-    @classmethod
-    def add_model_specific_args(cls, parent_parser: ArgumentParser):
-        """Wrapper to call default_hparams for pytorch-lightning.
-
-        Args:
-            parent_parser (ArgumentParser): parser
-
-        Returns:
-            ArgumentParser: parser with default_hparams added
-        """
-        return cls.default_hparams(parent_parser)
-
-    def __init__(self, train_dataset: Dataset,
-        valid_dataset: Dataset, test_dataset: Dataset,
-        encoder: nn.Module, decoder: nn.Module, **hparams
+    def __init__(self,
+        hparams: TaskHparams,
+        train_dataset: Dataset,
+        valid_dataset: Dataset,
+        test_dataset: Dataset,
+        encoder: nn.Module,
+        decoder: nn.Module,
     ):
-        super(pl.LigtningModule, self).__init__(**hparams)
+        super().__init__()
+        self.hparams = hparams
         self.train_dataset = train_dataset
         self.valid_dataset = valid_dataset
         self.test_dataset = test_dataset
@@ -108,9 +80,14 @@ class Task(pl.LightningModule, Hparams, abc.ABC):
         )
         return optimizer  #TODO lr scheduler
 
-    def n_steps(self):
-        """Return effective number of iterations, as true number of
-        backpropagation steps since model initialization.
-        Include iterations from restored checkpoint, but not pretrained encoder.
+    @classmethod
+    def add_model_specific_args(cls, parent_parser: ArgumentParser):
+        """Wrapper to call default_hparams for pytorch-lightning.
+
+        Args:
+            parent_parser (ArgumentParser): parser
+
+        Returns:
+            ArgumentParser: parser with default_hparams added
         """
-        pass #TODO
+        return TaskHparams.to_parser(parent_parser)

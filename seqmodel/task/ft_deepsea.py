@@ -1,14 +1,12 @@
 from seqmodel.task import Task
+from seqmodel.hparam import MatFileDatasetHparams
 from seqmodel.dataset import SupervisedDataset
 
 
 class MatFileDataset(SupervisedDataset):
 
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--mat_file', default='data/train.mat', type=str,
-                            help='path to matlab file containing training data')
-        return parser
+    def __init__(self, hparams: MatFileDatasetHparams):
+        self.hparams = hparams
 
     def dataloader(type: str = 'train'):
         """Returns dataloader for train/valid/test split.
@@ -31,11 +29,6 @@ class MatFileDataset(SupervisedDataset):
 
 
 class FtDeepSEA(Task):
-
-    @staticmethod
-    def _default_hparams(parser):
-        #TODO
-        return parser
 
     def __init__(self):
         pass #TODO

@@ -3,7 +3,7 @@ import math
 import typing
 import numpy as np
 import torch
-from seqmodel import Hparams
+from seqmodel.hparam import SeqIntervalDatasetHparams
 from seqmodel.dataset.seq import Sequence
 from seqmodel.dataset.seq import Intervals
 from seqmodel.dataset.seq import FastaSequence
@@ -18,44 +18,21 @@ from seqmodel.dataset.transforms import SequenceToTensor
 
 class SeqIntervalDataset(MapDataset):
 
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--seq_file', default='data/seq', type=str,
-                            help='path to sequence file')
-        parser.add_argument('--intervals', default=None, type=str,
-                            help='path to interval files for training split, use all sequences if None.')
-        parser.add_argument('--seq_len', default=2000, type=str,
-                            help='length of sampled sequence')
-        parser.add_argument('--skip_len', default=None, type=str,
-                            help='how many characters to skip before next sample, ' + \
-                                'defaults to seq_len')
-        parser.add_argument('--min_len', default=None, type=str,
-                            help='smallest interval length to sample from, ' + \
-                                'defaults to seq_len')
-        parser.add_argument('--randomize_start_offsets', default=True, type=Hparams.str2bool,
-                            help='move sampling start position by random number ' + \
-                                'less than seq_len')
-        parser.add_argument('--drop_incomplete', default=True, type=Hparams.str2bool,
-                            help='remove first and/or last samples with length ' + \
-                                'less than seq_len, if False and start_offset > 0, ' + \
-                                'this will pad the start of the first sample.')
-        parser.add_argument('--reverse_prop', default=0.5, type=float,
-                            help='proportion of samples to reverse.')
-        parser.add_argument('--complement_prop', default=0.5, type=float,
-                            help='proportion of samples to complement.')
-        return parser
-
     def __init__(self,
+        hparams: SeqIntervalDatasetHparams,
         transform: DataTransform,
         seq_source: Sequence,
         sample_intervals: Intervals,
         override_start_offset: int = None,
-        **hparams
     ):
         """Dataset which indexes over sequences at specified intervals.
         Sequences are defined by Sequence and optional Interval objects.
 
         Args:
+            hparams (SeqIntervalDatasetHparams): hyperparameters (tracked, see hparam.py).
+            transform (DataTransform): transforms to apply after sequence
+                is augmented by random reverse/complement and
+                converted to a tuple of (sequence, metadata) tensors.
             seq_source (Sequence): source of sequence data.
             sample_intervals (Intervals): source of interval data.
             override_start_offset (int, optional): how much to move sample start in each interval,
@@ -64,14 +41,14 @@ class SeqIntervalDataset(MapDataset):
                 sets override to 0 or random value depending on
                 `randomize_start_offsets`. Defaults to None.
         """
-        transforms = Compose([
+        super().__init__(hparams, transform)
+        self.transform = Compose([
             RandomFlip([0], self.hparams.reverse_prop, self.hparams.complement_prop),
             Uppercase([0]),
             SequenceToTensor([0], self.alphabet),
             ArrayToTensor([1], dtype=torch.Long),
-            transform,
+            self.transform,
         ])
-        super().__init__(transforms, **hparams)
 
         if self.hparams.skip_len is None:
             self.hparams.skip_len = self.hparams.seq_len

@@ -1,9 +1,6 @@
 TODO LIST
 =========
-- separate `Hparams` as independent objects in a separate file, which are required by current objects for initialization, to avoid imports when making jobs.
-    - separate hparams `pytorch_lightning.Trainer` from `Job` into a new `Hparams` object (untracked flag)
-    - encapsulate searching `Hparams` dependencies of `run.py` as separate function called by `Job`.
-    - add a tracked/untracked flag for `Hparams` objects to indicate whether `Job` should include them in canonical path.
+- encapsulate selecting `HparamCollection` as separate function outside `run.py` called by `Job`.
     - document supported `pytorch_lightning` hparams.
 - implement ssh jobs and Slurm jobs
     - add flag in jobs to submit job with '--fast_dev_run=True' to test, then without '--fast_dev_run=True' to run
@@ -12,21 +9,9 @@ TODO LIST
     - unit testing create jobs
     - document `os_interface.py`
 - batch size search in job.py
-- implement dataloaders compatible with `torch.utils.data.distributed.DistributedSampler`
-    - split Dataset object into a DataManager which tracks state related to train/val/test and returns appropriate dataloader by instantiating Dataset objects, Dataset should only handle sampling
-    - don't track hparams related to val/testing when training, only track for testing
-    - iter vs map interface
-    - task-specific hparams
-    - train/test/val hparams
 - implement positional encoder
 - implement ft tasks
-log:
-    seq coverage
-    loss
-    accuracy by class
-    median auc
-    ptmask
-        accuracy by mask type?
+- log: seq coverage, loss, accuracy by class, median auc, ptmask, accuracy by mask type?
 
 
 SETUP
@@ -110,20 +95,19 @@ Sequence Data
 
 Hyperparameters
 ---------------
-Any class registering a hyperparameter is a subclass of `seqmodel.hparam.Hparams`
+Any class requiring registered hyperparameters should create a container which subclasses of `seqmodel.hparam.Hparams` in `hparam.py`.
+- this allows hparams to be imported as `seqmodel.hparam` without any other dependencies.
 - hparams form a single namespace (no duplicate names or overriding allowed, each hparam is defined by only one class)
 - hparams are inherited by subclasses
-- default hparams are stored in an `ArgumentParser` object
-- default_hparams are required arguments for object initialization, although other arguments can be provided. When calling `__init__` on a subclass of `Hparams`, all defined hparams are stored in `self.hparams`, and the remaining arguments are ignored.
-- missing keys in hparams are replaced by default values
-- `run.py` combines all parsers needed to define the model objects. `job.py` has parsers which are independent of `run.py`.
-- static methods in `hparam` require an `ArgumentParser` parameter, this allows parsers from multiple objects to be combined. When operating on one object only, call that object's `default_hparams()` to get a parser.
-- use `hparam.parse_dict()` to convert between `ArgumentParser` and `dict`
-- use type `Hparams.str2bool` instead of `bool` for booleans, this solves a known argparse bug
+- class methods in `Hparams` allow finding default values, generating arg parser,
+instance of `Hparams` stores actual hyperparameter values.
+- store `Hparams` object in `self.hparams`
+- when initializing `Hparams`, missing keys are replaced by default values
+- only defaults can be `None`, initializing with `None` gives default value.
+- To use a group of `Hparam` objects, create subclass of `HparamCollection`. Select collection in `run.py`.
+- `Hparam` objects in `hparam.py` are used by `job.py` to construct canonical paths.
 
 For unit testing:
-- subclasses of `Hparams` must be at the top level of each module
-    (i.e. defined by `class Name(Hparams)` in each `.py` file, not defined within another class)
 - each hparam must have a non-empty help string
 
 Versions

@@ -4,29 +4,30 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
-from seqmodel import Hparams
+from seqmodel.hparam import PositionEncoderHparams
+from seqmodel.hparam import TransformerEncoderHparams
+from seqmodel.hparam import LinearDecoderHparams
 from seqmodel.model.decoder import LinearDecoder
 
 
-class PositionEncoder(Hparams, nn.Module):
+class PositionEncoder(nn.Module):
 
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--posencoder_dropout', default=0., type=float,
-                            help='dropout after positional encoder')
-        return parser
+    def __init__(self, hparams: PositionEncoderHparams):
+        super().__init__()
+        self.hparams = hparams
 
     def forward(self, x):
         return x #TODO
 
 
-class TransformerEncoder(Hparams, nn.Module):
+class TransformerEncoder(nn.Module):
     """Modifies `TransformerEncoder` module in pytorch.
     Provide option to return weights for every head in multihead attention.
     Sets default dim order to (N, S, E).
     Also includes positional encoder module.
 
     Args:
+        hparams (TransformerEncoderHparams): hyperparameters (tracked, see hparam.py).
         pos_encoder (nn.Module): positional encoder, applied first.
         ActivationFn (nn.Module): type of activation function
             to apply between feedforward layers.
@@ -36,29 +37,15 @@ class TransformerEncoder(Hparams, nn.Module):
             on residual connections, use lambda function to specify
             args if needed, since instances are created as `LayerNormFn()`.
     """
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--repr_dims', default=512, type=int,
-                            help='number of dimensions in representation layer')
-        parser.add_argument('--feedforward_dims', default=None, type=int,
-                            help='number of dimensions in feedforward (fully connected) layer, ' +
-                                'if None set to 2*repr_dims')
-        parser.add_argument('--n_heads', default=4, type=int,
-                            help='number of attention heads')
-        parser.add_argument('--n_layers', default=4, type=int,
-                            help='number of attention layers')
-        parser.add_argument('--dropout', default=0., type=float,
-                            help='proportion between [0., 1.] of dropout to apply between module layers.')
-        return parser
-
     def __init__(self,
+        hparams: TransformerEncoderHparams,
         pos_encoder: nn.Module,
         ActivationFn: nn.Module,
         DropoutFn: nn.Module,
         LayerNormFn: nn.Module,
-        **hparams,
     ):
-        super().__init__(**hparams)
+        super().__init__()
+        self.hparams = hparams
         self.pos_encoder = pos_encoder
         self.attn_layers = []
         feedforward_dims = self.hparams.feedforward_dims
@@ -139,8 +126,12 @@ class TransformerEncoderLayer(nn.Module):
         self.self_attn = MultiheadAttention(
                 d_model, nhead, dropout=dropout)
         # create feedforward layers
-        self.linear = LinearDecoder(d_model, d_model, ActivationFn, DropoutFn,
-            decode_dims=dim_feedforward, n_decode_layers=2, decode_dropout=dropout)
+        self.linear = LinearDecoder(
+            LinearDecoderHparams(
+                decode_dims=dim_feedforward,
+                n_decode_layers=2,
+                decode_dropout=dropout),
+            d_model, d_model, ActivationFn, DropoutFn)
         self.dropout1 = DropoutFn(dropout)
         self.dropout2 = DropoutFn(dropout)
         self.norm1 = LayerNormFn(d_model)

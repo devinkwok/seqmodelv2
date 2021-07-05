@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from numpy.testing import assert_array_almost_equal
+from seqmodel.hparam import LinearDecoderHparams, TransformerEncoderHparams
 from seqmodel import model
 from seqmodel.model.transformer import TransformerEncoderLayer
 from seqmodel.model.transformer import MultiheadAttention
@@ -32,7 +33,8 @@ class TestModel(unittest.TestCase):
         x = torch.randn(self.b, 1, self.d)
         x = x.repeat((1, self.s, 1))
 
-        decoder = model.LinearDecoder(self.d, self.d_out)
+        decoder = model.LinearDecoder(LinearDecoderHparams(),
+                                        self.d, self.d_out)
         self.assert_modules_equal_to(decoder.model,
             [nn.Sequential, nn.Linear, nn.ReLU, nn.Linear])
         y = decoder.forward(x)
@@ -45,8 +47,8 @@ class TestModel(unittest.TestCase):
             'n_decode_layers': 5,
             'decode_dropout': 0.2,
         }
-        decoder = model.LinearDecoder(self.d, self.d_out,
-                nn.SELU, nn.AlphaDropout, **hparams)
+        decoder = model.LinearDecoder(LinearDecoderHparams(**hparams),
+                            self.d, self.d_out, nn.SELU, nn.AlphaDropout)
         y = decoder.forward(x)
         self.assert_shape_equal_to(y, [self.b, self.s, self.d_out])
         self.assert_modules_equal_to(decoder.model,
@@ -123,8 +125,8 @@ class TestModel(unittest.TestCase):
             'dropout': 0.,
         }
         x = torch.randn(self.b, self.s, self.d)
-        encoder = model.TransformerEncoder(
-                nn.Identity(), nn.ReLU, nn.Dropout, nn.LayerNorm, **hparams)
+        encoder = model.TransformerEncoder(TransformerEncoderHparams(**hparams),
+                nn.Identity(), nn.ReLU, nn.Dropout, nn.LayerNorm)
         y, outs, weights = encoder.forward(x)
         self.assert_shape_equal_to(y, [self.b, self.s, self.d])
         self.assertEqual(outs, [])

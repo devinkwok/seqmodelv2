@@ -3,7 +3,6 @@ import abc
 import typing
 import pyfaidx
 import torch
-from seqmodel import Hparams
 
 
 class Alphabet():

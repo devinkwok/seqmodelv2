@@ -1,23 +1,24 @@
 import os
-from seqmodel import Hparams
 from seqmodel.job.abstract_job import Job
+from seqmodel.job.abstract_job import JobHparams
 
+
+class ShellJobHparams(JobHparams):
+    def _default_hparams():
+        return {
+            'activate_env_command': ('source env/bin/activate', 'startenv', str,
+                'command to start preinstalled python environment'),
+            'deactivate_env_command': ('deactivate', 'stopenv', str,
+                'command to stop preinstalled python environment'),
+        }
 
 class ShellJob(Job):
-    """Run job from shell with preinstalled python environment.
-    """
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--activate_env_command', default='source env/bin/activate', type=str,
-                            help='command to start preinstalled python environment')
-        parser.add_argument('--deactivate_env_command', default='deactivate', type=str,
-                            help='command to stop preinstalled python environment')
-        return parser
 
     def __init__(self, os_interface, **hparams):
-        """Change self.template to support multiple script templates.
+        """Run job from shell with preinstalled python environment.
+        Note: change self.template to support multiple script templates.
         """
-        super().__init__(os_interface, **hparams)
+        super().__init__(os_interface, ShellJobHparams(**hparams))
         self.template = VENV_TEMPLATE
 
     def _create(self, hparams: dict) -> str:

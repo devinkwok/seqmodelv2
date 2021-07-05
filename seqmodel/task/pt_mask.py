@@ -2,32 +2,16 @@ import typing
 import torch
 from torch import random
 import torch.nn as nn
-import pytorch_lightning as pl
-from seqmodel import Hparams
+from seqmodel.hparam import PtMaskHparams
 from seqmodel.dataset import Dataset
 from seqmodel.dataset.transforms import DataTransform
-from seqmodel.dataset.transforms import Compose
 from seqmodel.task.abstract_task import Task
 
 
-class MaskSequence(DataTransform, Hparams):
+class MaskSequence(DataTransform):
 
-    @staticmethod
-    def _default_hparams(parser):
-        parser.add_argument('--keep_prop', default=0.01, type=float,
-                            help='proportion of sequence positions to apply identity loss.')
-        parser.add_argument('--mask_prop', default=0.13, type=float,
-                            help='proportion of sequence positions to mask.')
-        parser.add_argument('--random_prop', default=0.01, type=float,
-                            help='proportion of sequence positions to randomize.')
-        return parser
-
-    def __init__(self, alphabet, **hparams):
-        super().__init__(**hparams)
-        keep_prop = self.hparams.keep_prop
-        mask_prop = self.hparams.mask_prop
-        random_prop = self.hparams.random_prop
-
+    def __init__(self, keep_prop, mask_prop, random_prop):
+        super().__init__({0})
         if keep_prop < 0 or mask_prop < 0 or random_prop < 0:
             raise ValueError('Proportions less than 0: ' + \
                 f'keep={keep_prop}, mask={mask_prop}, random={random_prop}.')
@@ -42,9 +26,8 @@ class MaskSequence(DataTransform, Hparams):
         self.alphabet = alphabet.add_control_tokens(['mask'])
 
     #TODO switch to numpy ops?
-    def transform(
-        self, src: torch.Tensor, *metadata
-    ) -> typing.Tuple[torch.Tensor, torch.Tensor, typing.Any]:
+    def _transform(self, src: torch.Tensor,
+    ) -> typing.Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             # generate mask
             mask = torch.rand(src, 4, requires_grad=False)
@@ -60,7 +43,7 @@ class MaskSequence(DataTransform, Hparams):
             tgt.masked_scatter_((mask < self.random_cutoff), random_chars)
             # fill no loss positions with `none` token, these will be ignored
             tgt.masked_fill_((mask > self.keep_cutoff), self.alphabet['none'])
-        return src.contiguous(), tgt.contiguous(), metadata.contiguous()
+        return src.contiguous(), tgt.contiguous()
 
     @property
     def no_loss_token(self):
@@ -69,16 +52,23 @@ class MaskSequence(DataTransform, Hparams):
 
 class PtMask(Task):
 
-    @staticmethod
-    def _default_hparams(parser):
-        return parser
-
     def __init__(self,
-        train_dataset: Dataset, valid_dataset: Dataset, test_dataset: Dataset,
-        encoder: nn.Module, decoder: nn.Module, **hparams
+        hparams: PtMaskHparams,
+        train_dataset: Dataset,
+        valid_dataset: Dataset,
+        test_dataset: Dataset,
+        encoder: nn.Module,
+        decoder: nn.Module,
     ):
-        super().__init__(train_dataset, valid_dataset, test_dataset,
-                        encoder, decoder, **hparams)
+        super().__init__(hparams, train_dataset, valid_dataset, test_dataset,
+                        encoder, decoder)
+        mask = MaskSequence(
+            self.hparams.keep_prop,
+            self.hparams.mask_prop,
+            self.hparams.random_prop)
+        self.train_dataset.transform.append_transforms(mask)
+        self.valid_dataset.transform.append_transforms(mask)
+        self.test_dataset.transform.append_transforms(mask)
 
     def configure_loss_fn(self) -> nn.Module:
         # remove loss where tgt class is no_loss_token

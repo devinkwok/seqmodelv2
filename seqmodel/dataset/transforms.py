@@ -7,7 +7,7 @@ from seqmodel.dataset.seq import Alphabet
 
 class DataTransform(abc.ABC):
 
-    def __init__(self, indexes: typing.List[int]):
+    def __init__(self, indexes: typing.Set[int]):
         """Generic transformation applied to sample.
 
         Args:
@@ -16,6 +16,10 @@ class DataTransform(abc.ABC):
         """
         self.indexes = indexes
 
+    @abc.abstractmethod
+    def _transform(self, arg: typing.Any):
+        return arg
+
     def transform(self, *args):
         """Transforms sampled data, note it takes any number of arguments.
         E.g. unsupervised Dataset will give sequence and metadata as args,
@@ -23,17 +27,18 @@ class DataTransform(abc.ABC):
         
         Applies `_transform` to positions in self.indexes
         """
-        output = [arg for arg in args]
-        for i in self.indexes:
-            output[i] = self._transform(output[i])
+        output = []
+        for i, arg in enumerate(args):
+            if i in self.indexes:
+                arg = self._transform(arg)
+            if type(arg) == tuple:
+                [output.append(a) for a in arg]
+            else:
+                output.append(arg)
         if len(output) == 1:
             return output[0]
         return tuple(output)
 
-    @abc.abstractmethod
-    def _transform(self, arg: typing.Any):
-        return arg
-    
     def __call__(self, *args):
         return self.transform(*args)
 
